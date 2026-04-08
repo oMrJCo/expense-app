@@ -397,11 +397,34 @@
       saveEditBtn: document.getElementById('saveEditBtn'),
     };
 
-    function formatDate(dateStr) {
-      const date = new Date(dateStr);
-      if (Number.isNaN(date.getTime())) return '-';
-      return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
-    }
+    function normalizeDateOnly(value) {
+  if (!value) return '';
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return text;
+}
+
+function formatDate(dateStr) {
+  const normalized = normalizeDateOnly(dateStr);
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return String(dateStr || '-');
+  return new Intl.DateTimeFormat('th-TH', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
 
     function formatMonthLabel(dateStr) {
       const date = new Date(dateStr);
@@ -448,30 +471,40 @@
     }
 
     function getWeekLabel(dateStr) {
-      const date = new Date(dateStr + 'T00:00:00');
-      const start = getStartOfWeek(date);
-      const end = getEndOfWeek(date);
-      const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(start);
-      const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(end);
-      return `${startLabel} - ${endLabel}`;
-    }
+  const normalized = normalizeDateOnly(dateStr);
+  const date = new Date(normalized + 'T00:00:00');
+  const start = getStartOfWeek(date);
+  const end = getEndOfWeek(date);
+  const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(start);
+  const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(end);
+  return `${startLabel} - ${endLabel}`;
+}
 
     function isInRange(itemDate, mode, customStart, customEnd) {
-      const target = new Date(itemDate + 'T00:00:00');
-      const today = new Date();
-      if (mode === 'daily') return itemDate === getTodayLocal();
-      if (mode === 'weekly') return target >= getStartOfWeek(today) && target <= getEndOfWeek(today);
-      if (mode === 'monthly') return target >= getStartOfMonth(today) && target <= getEndOfMonth(today);
-      if (mode === 'custom') {
-        if (!customStart && !customEnd) return true;
-        const start = customStart ? new Date(customStart + 'T00:00:00') : null;
-        const end = customEnd ? new Date(customEnd + 'T23:59:59') : null;
-        if (start && target < start) return false;
-        if (end && target > end) return false;
-        return true;
-      }
-      return true;
-    }
+  const normalizedItemDate = normalizeDateOnly(itemDate);
+  const target = new Date(normalizedItemDate + 'T00:00:00');
+  const today = new Date();
+
+  if (mode === 'daily') {
+    return normalizedItemDate === getTodayLocal();
+  }
+
+  if (mode === 'weekly') {
+    return target >= getStartOfWeek(today) && target <= getEndOfWeek(today);
+  }
+
+  if (mode === 'monthly') {
+    return target >= getStartOfMonth(today) && target <= getEndOfMonth(today);
+  }
+
+  if (mode === 'custom') {
+    if (!customStart && !customEnd) return true;
+    const start = customStart ? new Date(customStart + 'T00:00:00') : null;
+    const end = customEnd ? new Date(customEnd + 'T23:59:59') : null;
+    if (start && target < start) return false;
+    if (end && target > end) return false;
+    return true;
+  }
 
     function exportCSV(rows) {
       const headers = ['วันที่บันทึก', 'รายการ', 'จ่ายให้ใคร', 'จำนวนเงิน'];
