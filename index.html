@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>เว็บบันทึกรายจ่ายสำรองจ่าย</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #cbd5e1;
+      --soft: #eef2f7;
+      --primary: #0f172a;
+      --primaryText: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 12px 12px 28px;
+    }
+    .sticky {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(248,250,252,.96);
+      backdrop-filter: blur(8px);
+      padding: 10px 0 14px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .top-actions, .record-actions, .modal-actions, .summary-grid, .stats-grid, .inline-row, .two-col {
+      display: grid;
+      gap: 8px;
+    }
+    .top-actions, .record-actions, .modal-actions, .inline-row { grid-template-columns: 1fr 1fr; }
+    .stats-grid, .summary-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr 1fr; }
+    .card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(15,23,42,.08);
+      margin-bottom: 12px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .card-title { font-size: 18px; font-weight: 800; }
+    .field { margin-bottom: 12px; }
+    .label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    input, select, button {
+      font: inherit;
+    }
+    input, select {
+      width: 100%;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+      font-size: 16px;
+    }
+    button {
+      height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      padding: 0 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primaryText);
+      border-color: var(--primary);
+    }
+    .btn-full { width: 100%; height: 46px; }
+    .btn-link {
+      border: 0;
+      background: transparent;
+      height: auto;
+      padding: 0;
+      color: #2563eb;
+    }
+    .hint {
+      background: var(--soft);
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .mini-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .mini-title { font-weight: 800; margin-bottom: 10px; }
+    .stat {
+      background: #fff;
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(15,23,42,.08);
+    }
+    .stat-label { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+    .stat-value { font-size: 24px; font-weight: 900; }
+    .summary-item {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 12px;
+    }
+    .summary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+    .summary-row-title { font-size: 14px; font-weight: 700; }
+    .summary-row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .summary-row-amount { font-weight: 900; white-space: nowrap; }
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .select-all {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--soft);
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; }
+    .record {
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .record-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .record-left {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      flex: 1;
+    }
+    .record-title { font-weight: 800; font-size: 16px; }
+    .record-date { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .record-right { text-align: right; }
+    .record-amount { font-size: 18px; font-weight: 900; }
+    .badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .muted { color: var(--muted); }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      z-index: 50;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: 100%;
+      max-width: 520px;
+      background: #fff;
+      border-radius: 20px;
+      padding: 16px;
+    }
+    .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
+    @media (min-width: 768px) {
+      .wrap { padding: 20px; }
+      .top-actions { grid-template-columns: repeat(2, max-content); justify-content: end; }
+      .stats-grid, .summary-grid { grid-template-columns: repeat(3, 1fr); }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sticky">
+      <div class="topbar">
+        <div>
+          <h1>เว็บบันทึกรายจ่ายสำรองจ่าย</h1>
+          <div class="sub">เวอร์ชันไฟล์เดียว ใช้กับ GitHub Pages ได้เลย</div>
+        </div>
+        <div class="top-actions">
+          <button id="deleteSelectedBtn">ลบที่เลือก (0)</button>
+          <button class="btn-primary" id="exportBtn">Export CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">เพิ่มรายการ</div>
+      <div class="field">
+        <label class="label">จ่ายค่าอะไร</label>
+        <input id="itemInput" placeholder="เช่น ค่าน้ำมัน, ค่าขนส่ง, ค่าอาหาร" />
+      </div>
+      <div class="field">
+        <label class="label">จำนวนเงิน</label>
+        <input id="amountInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="field">
+        <label class="label">จ่ายให้ใคร</label>
+        <select id="payToInput"></select>
+      </div>
+      <div class="mini-box">
+        <div class="mini-title">เพิ่มตัวเลือก “จ่ายให้ใคร”</div>
+        <div class="inline-row">
+          <input id="newPayToInput" placeholder="เช่น บ้าน, ร้าน, คลังสินค้า" />
+          <button id="addPayToBtn">เพิ่ม</button>
+        </div>
+      </div>
+      <div class="hint">วันที่บันทึกอัตโนมัติ: <strong id="todayText"></strong></div>
+      <button class="btn-primary btn-full" id="addBtn">บันทึกรายการ</button>
+    </div>
+
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">ตัวกรองข้อมูล</div>
+        <button class="btn-link" id="toggleFiltersBtn">แสดง</button>
+      </div>
+      <div id="filtersSection" style="display:none;">
+        <div class="field">
+          <label class="label">เลือกระยะเวลา</label>
+          <select id="filterMode">
+            <option value="daily">รายวัน</option>
+            <option value="weekly">รายสัปดาห์</option>
+            <option value="monthly">รายเดือน</option>
+            <option value="custom">กำหนดเอง</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label">จ่ายให้ใคร</label>
+          <select id="payToFilter"></select>
+        </div>
+        <div class="field">
+          <label class="label">ค้นหารายการ</label>
+          <input id="keywordInput" placeholder="พิมพ์ชื่อรายการ" />
+        </div>
+        <div class="two-col" id="customDates" style="display:none;">
+          <div class="field">
+            <label class="label">วันที่เริ่มต้น</label>
+            <input id="customStart" type="date" />
+          </div>
+          <div class="field">
+            <label class="label">วันที่สิ้นสุด</label>
+            <input id="customEnd" type="date" />
+          </div>
+        </div>
+        <button id="resetFiltersBtn">รีเซ็ตตัวกรอง</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">สรุปยอดรวม</div>
+        <button class="btn-link" id="toggleSummariesBtn">แสดง</button>
+      </div>
+      <div class="summary-grid" id="summariesSection" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">รายการที่บันทึก</div>
+      <div id="recordsSection"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="editModal">
+    <div class="modal-card">
+      <div class="modal-title">แก้ไขรายการย้อนหลัง</div>
+      <div class="field">
+        <label class="label">จ่ายค่าอะไร</label>
+        <input id="editItemInput" />
+      </div>
+      <div class="field">
+        <label class="label">จำนวนเงิน</label>
+        <input id="editAmountInput" type="number" inputmode="decimal" min="0" step="0.01" />
+      </div>
+      <div class="field">
+        <label class="label">จ่ายให้ใคร</label>
+        <select id="editPayToInput"></select>
+      </div>
+      <div class="hint">วันที่บันทึกเดิม: <strong id="editDateText"></strong></div>
+      <div class="modal-actions">
+        <button id="cancelEditBtn">ยกเลิก</button>
+        <button class="btn-primary" id="saveEditBtn">บันทึกการแก้ไข</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'advance-expense-records-v4';
+    const CATEGORY_STORAGE_KEY = 'advance-expense-categories-v1';
+    const DEFAULT_PAY_TO_OPTIONS = ['ส่วนตัว', 'ออฟฟิศ'];
+
+    const state = {
+      records: [],
+      payToOptions: [...DEFAULT_PAY_TO_OPTIONS],
+      selectedIds: [],
+      showFilters: false,
+      showSummaries: false,
+      editingRecordId: null,
+    };
+
+    const el = {
+      itemInput: document.getElementById('itemInput'),
+      amountInput: document.getElementById('amountInput'),
+      payToInput: document.getElementById('payToInput'),
+      newPayToInput: document.getElementById('newPayToInput'),
+      addPayToBtn: document.getElementById('addPayToBtn'),
+      addBtn: document.getElementById('addBtn'),
+      todayText: document.getElementById('todayText'),
+      deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
+      exportBtn: document.getElementById('exportBtn'),
+      filterMode: document.getElementById('filterMode'),
+      payToFilter: document.getElementById('payToFilter'),
+      keywordInput: document.getElementById('keywordInput'),
+      customStart: document.getElementById('customStart'),
+      customEnd: document.getElementById('customEnd'),
+      customDates: document.getElementById('customDates'),
+      resetFiltersBtn: document.getElementById('resetFiltersBtn'),
+      toggleFiltersBtn: document.getElementById('toggleFiltersBtn'),
+      filtersSection: document.getElementById('filtersSection'),
+      toggleSummariesBtn: document.getElementById('toggleSummariesBtn'),
+      summariesSection: document.getElementById('summariesSection'),
+      statsGrid: document.getElementById('statsGrid'),
+      recordsSection: document.getElementById('recordsSection'),
+      editModal: document.getElementById('editModal'),
+      editItemInput: document.getElementById('editItemInput'),
+      editAmountInput: document.getElementById('editAmountInput'),
+      editPayToInput: document.getElementById('editPayToInput'),
+      editDateText: document.getElementById('editDateText'),
+      cancelEditBtn: document.getElementById('cancelEditBtn'),
+      saveEditBtn: document.getElementById('saveEditBtn'),
+    };
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      if (Number.isNaN(date.getTime())) return '-';
+      return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    }
+
+    function formatMonthLabel(dateStr) {
+      const date = new Date(dateStr);
+      if (Number.isNaN(date.getTime())) return '-';
+      return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: 'long' }).format(date);
+    }
+
+    function formatMoney(value) {
+      return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
+    }
+
+    function getTodayLocal() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset();
+      const local = new Date(now.getTime() - offset * 60 * 1000);
+      return local.toISOString().slice(0, 10);
+    }
+
+    function getStartOfWeek(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    function getEndOfWeek(date) {
+      const start = getStartOfWeek(date);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return end;
+    }
+
+    function getStartOfMonth(date) {
+      const d = new Date(date);
+      return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    }
+
+    function getEndOfMonth(date) {
+      const d = new Date(date);
+      return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    function getWeekLabel(dateStr) {
+      const date = new Date(dateStr + 'T00:00:00');
+      const start = getStartOfWeek(date);
+      const end = getEndOfWeek(date);
+      const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(start);
+      const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(end);
+      return `${startLabel} - ${endLabel}`;
+    }
+
+    function isInRange(itemDate, mode, customStart, customEnd) {
+      const target = new Date(itemDate + 'T00:00:00');
+      const today = new Date();
+      if (mode === 'daily') return itemDate === getTodayLocal();
+      if (mode === 'weekly') return target >= getStartOfWeek(today) && target <= getEndOfWeek(today);
+      if (mode === 'monthly') return target >= getStartOfMonth(today) && target <= getEndOfMonth(today);
+      if (mode === 'custom') {
+        if (!customStart && !customEnd) return true;
+        const start = customStart ? new Date(customStart + 'T00:00:00') : null;
+        const end = customEnd ? new Date(customEnd + 'T23:59:59') : null;
+        if (start && target < start) return false;
+        if (end && target > end) return false;
+        return true;
+      }
+      return true;
+    }
+
+    function exportCSV(rows) {
+      const headers = ['วันที่บันทึก', 'รายการ', 'จ่ายให้ใคร', 'จำนวนเงิน'];
+      const csvRows = [
+        headers.join(','),
+        ...rows.map((row) => [
+          `"${row.date}"`,
+          `"${String(row.item).replace(/"/g, '""')}"`,
+          `"${String(row.payTo || '-').replace(/"/g, '""')}"`,
+          `"${Number(row.amount).toFixed(2)}"`,
+        ].join(',')),
+      ];
+      const blob = new Blob(['\ufeff' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expense-export-${getTodayLocal()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function buildSummary(records, type) {
+      const map = new Map();
+      records.forEach((record) => {
+        let key = record.date;
+        let label = formatDate(record.date);
+        if (type === 'weekly') { key = getWeekLabel(record.date); label = key; }
+        if (type === 'monthly') { key = record.date.slice(0, 7); label = formatMonthLabel(record.date); }
+        if (!map.has(key)) map.set(key, { key, label, total: 0, count: 0 });
+        const current = map.get(key);
+        current.total += Number(record.amount || 0);
+        current.count += 1;
+      });
+      return Array.from(map.values()).sort((a, b) => String(b.key).localeCompare(String(a.key)));
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
+      localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(state.payToOptions));
+    }
+
+    function load() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        state.records = Array.isArray(saved) ? saved : [];
+      } catch { state.records = []; }
+
+      try {
+        const savedOptions = JSON.parse(localStorage.getItem(CATEGORY_STORAGE_KEY) || 'null');
+        if (Array.isArray(savedOptions) && savedOptions.length) state.payToOptions = savedOptions;
+      } catch {}
+    }
+
+    function getFilteredRecords() {
+      const mode = el.filterMode.value;
+      const keyword = el.keywordInput.value.trim().toLowerCase();
+      const payToFilter = el.payToFilter.value;
+      return [...state.records]
+        .filter((r) => isInRange(r.date, mode, el.customStart.value, el.customEnd.value))
+        .filter((r) => r.item.toLowerCase().includes(keyword))
+        .filter((r) => payToFilter === 'all' ? true : r.payTo === payToFilter)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    function renderSelectOptions() {
+      const currentPayTo = el.payToInput.value || state.payToOptions[0] || '';
+      el.payToInput.innerHTML = state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
+      el.payToInput.value = state.payToOptions.includes(currentPayTo) ? currentPayTo : state.payToOptions[0] || '';
+
+      const currentFilter = el.payToFilter.value || 'all';
+      el.payToFilter.innerHTML = `<option value="all">ทั้งหมด</option>` + state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
+      el.payToFilter.value = (currentFilter === 'all' || state.payToOptions.includes(currentFilter)) ? currentFilter : 'all';
+
+      const currentEdit = el.editPayToInput.value || state.payToOptions[0] || '';
+      el.editPayToInput.innerHTML = state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
+      el.editPayToInput.value = state.payToOptions.includes(currentEdit) ? currentEdit : state.payToOptions[0] || '';
+    }
+
+    function renderStats(filteredRecords) {
+      const totalAmount = filteredRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const modeText = el.filterMode.value === 'daily' ? 'รายวัน' : el.filterMode.value === 'weekly' ? 'รายสัปดาห์' : el.filterMode.value === 'monthly' ? 'รายเดือน' : 'กำหนดเอง';
+      const stats = [
+        { label: 'จำนวนรายการ', value: filteredRecords.length },
+        { label: 'ยอดรวม', value: `฿${formatMoney(totalAmount)}` },
+        { label: 'ช่วงที่กำลังดู', value: modeText },
+      ];
+      el.statsGrid.innerHTML = stats.map((s) => `
+        <div class="stat">
+          <div class="stat-label">${s.label}</div>
+          <div class="stat-value">${s.value}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderSummaries(filteredRecords) {
+      const cards = [
+        { title: 'สรุปรายวัน', data: buildSummary(filteredRecords, 'daily') },
+        { title: 'สรุปรายสัปดาห์', data: buildSummary(filteredRecords, 'weekly') },
+        { title: 'สรุปรายเดือน', data: buildSummary(filteredRecords, 'monthly') },
+      ];
+      el.summariesSection.innerHTML = cards.map((card) => `
+        <div class="summary-item">
+          <div class="mini-title">${card.title}</div>
+          ${card.data.length === 0 ? `<div class="muted">ยังไม่มีข้อมูล</div>` : card.data.slice(0,5).map((row) => `
+            <div class="summary-row">
+              <div>
+                <div class="summary-row-title">${row.label}</div>
+                <div class="summary-row-sub">${row.count} รายการ</div>
+              </div>
+              <div class="summary-row-amount">฿${formatMoney(row.total)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    function renderRecords(filteredRecords) {
+      if (!filteredRecords.length) {
+        el.recordsSection.innerHTML = `<div class="empty">ยังไม่มีรายการในช่วงเวลานี้</div>`;
+        return;
+      }
+      const allVisibleSelected = filteredRecords.length > 0 && filteredRecords.every((record) => state.selectedIds.includes(record.id));
+      el.recordsSection.innerHTML = `
+        <div class="select-all">
+          <label class="checkbox-row"><input type="checkbox" id="selectAllBox" ${allVisibleSelected ? 'checked' : ''}> <span>เลือกทั้งหมด</span></label>
+          <span class="muted">${filteredRecords.length} รายการ</span>
+        </div>
+        ${filteredRecords.map((record) => `
+          <div class="record">
+            <div class="record-top">
+              <div class="record-left">
+                <input type="checkbox" class="select-one" data-id="${record.id}" ${state.selectedIds.includes(record.id) ? 'checked' : ''}>
+                <div>
+                  <div class="record-title">${escapeHtml(record.item)}</div>
+                  <div class="record-date">${formatDate(record.date)}</div>
+                </div>
+              </div>
+              <div class="record-right">
+                <div class="record-amount">฿${formatMoney(record.amount)}</div>
+                <div class="badge">${escapeHtml(record.payTo || '-')}</div>
+              </div>
+            </div>
+            <div class="record-actions">
+              <button class="edit-btn" data-id="${record.id}">แก้ไข</button>
+              <button class="delete-btn" data-id="${record.id}">ลบ</button>
+            </div>
+          </div>
+        `).join('')}
+      `;
+
+      document.getElementById('selectAllBox').addEventListener('change', (e) => {
+        state.selectedIds = e.target.checked ? filteredRecords.map((r) => r.id) : [];
+        render();
+      });
+
+      document.querySelectorAll('.select-one').forEach((box) => {
+        box.addEventListener('change', (e) => {
+          const id = e.target.dataset.id;
+          if (e.target.checked) state.selectedIds = [...new Set([...state.selectedIds, id])];
+          else state.selectedIds = state.selectedIds.filter((x) => x !== id);
+          render();
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          state.records = state.records.filter((r) => r.id !== id);
+          state.selectedIds = state.selectedIds.filter((x) => x !== id);
+          save();
+          render();
+        });
+      });
+
+      document.querySelectorAll('.edit-btn').forEach((btn) => {
+        btn.addEventListener('click', () => openEdit(btn.dataset.id));
+      });
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function openEdit(id) {
+      const record = state.records.find((r) => r.id === id);
+      if (!record) return;
+      state.editingRecordId = id;
+      el.editItemInput.value = record.item;
+      el.editAmountInput.value = record.amount;
+      el.editPayToInput.value = record.payTo || state.payToOptions[0] || '';
+      el.editDateText.textContent = formatDate(record.date);
+      el.editModal.classList.add('open');
+    }
+
+    function closeEdit() {
+      state.editingRecordId = null;
+      el.editModal.classList.remove('open');
+    }
+
+    function render() {
+      renderSelectOptions();
+      el.todayText.textContent = formatDate(getTodayLocal());
+      el.filtersSection.style.display = state.showFilters ? 'block' : 'none';
+      el.summariesSection.style.display = state.showSummaries ? 'grid' : 'none';
+      el.toggleFiltersBtn.textContent = state.showFilters ? 'ซ่อน' : 'แสดง';
+      el.toggleSummariesBtn.textContent = state.showSummaries ? 'ซ่อน' : 'แสดง';
+      el.customDates.style.display = el.filterMode.value === 'custom' ? 'grid' : 'none';
+      const filtered = getFilteredRecords();
+      renderStats(filtered);
+      renderSummaries(filtered);
+      renderRecords(filtered);
+      el.deleteSelectedBtn.textContent = `ลบที่เลือก (${state.selectedIds.length})`;
+      el.deleteSelectedBtn.disabled = state.selectedIds.length === 0;
+      el.exportBtn.disabled = filtered.length === 0;
+    }
+
+    el.addBtn.addEventListener('click', () => {
+      const item = el.itemInput.value.trim();
+      const amount = Number(el.amountInput.value);
+      const payTo = el.payToInput.value;
+      if (!item || !amount || amount <= 0 || !payTo) return;
+      state.records.unshift({
+        id: crypto.randomUUID(),
+        item,
+        amount,
+        payTo,
+        date: getTodayLocal(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      el.itemInput.value = '';
+      el.amountInput.value = '';
+      save();
+      render();
+    });
+
+    el.addPayToBtn.addEventListener('click', () => {
+      const value = el.newPayToInput.value.trim();
+      if (!value) return;
+      if (!state.payToOptions.includes(value)) state.payToOptions.push(value);
+      el.newPayToInput.value = '';
+      save();
+      renderSelectOptions();
+      el.payToInput.value = value;
+      render();
+    });
+
+    el.exportBtn.addEventListener('click', () => exportCSV(getFilteredRecords()));
+
+    el.deleteSelectedBtn.addEventListener('click', () => {
+      if (!state.selectedIds.length) return;
+      state.records = state.records.filter((r) => !state.selectedIds.includes(r.id));
+      state.selectedIds = [];
+      save();
+      render();
+    });
+
+    el.toggleFiltersBtn.addEventListener('click', () => { state.showFilters = !state.showFilters; render(); });
+    el.toggleSummariesBtn.addEventListener('click', () => { state.showSummaries = !state.showSummaries; render(); });
+    el.filterMode.addEventListener('change', render);
+    el.payToFilter.addEventListener('change', render);
+    el.keywordInput.addEventListener('input', render);
+    el.customStart.addEventListener('change', render);
+    el.customEnd.addEventListener('change', render);
+
+    el.resetFiltersBtn.addEventListener('click', () => {
+      el.filterMode.value = 'daily';
+      el.payToFilter.value = 'all';
+      el.keywordInput.value = '';
+      el.customStart.value = '';
+      el.customEnd.value = '';
+      state.selectedIds = [];
+      render();
+    });
+
+    el.cancelEditBtn.addEventListener('click', closeEdit);
+    el.saveEditBtn.addEventListener('click', () => {
+      const id = state.editingRecordId;
+      const record = state.records.find((r) => r.id === id);
+      if (!record) return;
+      const item = el.editItemInput.value.trim();
+      const amount = Number(el.editAmountInput.value);
+      const payTo = el.editPayToInput.value;
+      if (!item || !amount || amount <= 0 || !payTo) return;
+      record.item = item;
+      record.amount = amount;
+      record.payTo = payTo;
+      record.updatedAt = new Date().toISOString();
+      save();
+      closeEdit();
+      render();
+    });
+
+    el.editModal.addEventListener('click', (e) => {
+      if (e.target === el.editModal) closeEdit();
+    });
+
+    load();
+    render();
+  </script>
+</body>
+</html>
