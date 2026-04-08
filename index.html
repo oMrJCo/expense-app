@@ -2,906 +2,875 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>เว็บบันทึกรายจ่ายสำรองจ่าย</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บันทึกรายจ่ายสำรอง</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --line: #cbd5e1;
-      --soft: #eef2f7;
-      --primary: #0f172a;
-      --primaryText: #ffffff;
+      --bg: #f5f4f0;
+      --surface: #ffffff;
+      --surface2: #f0efe9;
+      --border: #e2e0d8;
+      --text: #1a1916;
+      --muted: #8a8880;
+      --accent: #1a1916;
+      --accent-fg: #ffffff;
+      --danger: #c0392b;
+      --success: #1a6b3a;
+      --radius: 14px;
+      --shadow: 0 1px 4px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: 'IBM Plex Sans Thai', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.6;
     }
-    .wrap {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 12px 12px 28px;
-    }
-    .sticky {
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
       position: sticky;
       top: 0;
-      z-index: 10;
-      background: rgba(248,250,252,.96);
-      backdrop-filter: blur(8px);
-      padding: 10px 0 14px;
+      z-index: 100;
     }
-    h1 {
-      margin: 0;
-      font-size: 28px;
-      line-height: 1.2;
-    }
-    .sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
-    .top-actions, .record-actions, .modal-actions, .summary-grid, .stats-grid, .inline-row, .two-col {
-      display: grid;
-      gap: 8px;
-    }
-    .top-actions { grid-template-columns: 1fr 1fr 1fr; }
-    .record-actions, .modal-actions, .inline-row { grid-template-columns: 1fr 1fr; }
-    .stats-grid, .summary-grid { grid-template-columns: 1fr; }
-    .two-col { grid-template-columns: 1fr 1fr; }
-    .card {
-      background: var(--card);
-      border-radius: 20px;
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(15,23,42,.08);
-      margin-bottom: 12px;
-    }
-    .card-header {
+    .header-inner {
+      max-width: 720px;
+      margin: 0 auto;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
+      height: 56px;
       gap: 12px;
-      margin-bottom: 12px;
     }
-    .card-title { font-size: 18px; font-weight: 800; }
-    .field { margin-bottom: 12px; }
-    .label {
-      display: block;
-      font-size: 14px;
-      font-weight: 700;
-      margin-bottom: 8px;
+    .header h1 { font-size: 16px; font-weight: 600; }
+    .header-actions { display: flex; gap: 8px; }
+
+    /* ── Layout ── */
+    .main { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
     }
-    input, select, button { font: inherit; }
-    input, select {
-      width: 100%;
-      height: 44px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      padding: 0 12px;
-      background: #fff;
-      color: var(--text);
-      font-size: 16px;
-    }
-    button {
-      height: 44px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      padding: 0 14px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .btn-primary {
-      background: var(--primary);
-      color: var(--primaryText);
-      border-color: var(--primary);
-    }
-    .btn-full { width: 100%; height: 46px; }
-    .btn-link {
-      border: 0;
-      background: transparent;
-      height: auto;
-      padding: 0;
-      color: #2563eb;
-    }
-    .hint {
-      background: var(--soft);
-      border-radius: 14px;
-      padding: 12px;
-      font-size: 14px;
-      margin-bottom: 12px;
-    }
-    .mini-box {
-      border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-    .mini-title { font-weight: 800; margin-bottom: 10px; }
-    .stat {
-      background: #fff;
-      border-radius: 20px;
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(15,23,42,.08);
-    }
-    .stat-label { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
-    .stat-value { font-size: 24px; font-weight: 900; }
-    .summary-item {
-      background: #f8fafc;
-      border-radius: 16px;
-      padding: 12px;
-    }
-    .summary-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px;
-      margin-top: 8px;
-    }
-    .summary-row-title { font-size: 14px; font-weight: 700; }
-    .summary-row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .summary-row-amount { font-weight: 900; white-space: nowrap; }
-    .empty {
-      border: 1px dashed var(--line);
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
       color: var(--muted);
+      margin-bottom: 16px;
     }
-    .select-all {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+
+    /* ── Stat strip ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
-      background: var(--soft);
-      border-radius: 14px;
-      padding: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 14px;
+    }
+    .stat-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .stat-val { font-size: 22px; font-weight: 700; }
+
+    /* ── Form ── */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+    .field input, .field select {
+      width: 100%; height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 12px;
+      font: inherit;
+      font-size: 15px;
+      background: var(--surface2);
+      color: var(--text);
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
+    .field input:focus, .field select:focus {
+      border-color: var(--text);
+      box-shadow: 0 0 0 3px rgba(26,25,22,.08);
+    }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .date-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-bottom: 14px;
+    }
+    .date-chip span { color: var(--text); font-weight: 500; }
+
+    /* ── Buttons ── */
+    button { font: inherit; cursor: pointer; border: none; outline: none; }
+    .btn {
+      height: 40px; border-radius: 10px;
+      padding: 0 16px; font-size: 14px; font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      transition: background .12s, transform .1s;
+    }
+    .btn:hover { background: var(--surface2); }
+    .btn:active { transform: scale(.98); }
+    .btn-primary {
+      background: var(--accent); color: var(--accent-fg);
+      border-color: var(--accent);
+    }
+    .btn-primary:hover { background: #333; border-color: #333; }
+    .btn-full { width: 100%; height: 44px; font-size: 15px; }
+    .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
+    .btn-danger { color: var(--danger); border-color: #f5c6c3; }
+    .btn-danger:hover { background: #fef2f2; }
+    .btn-ghost { background: transparent; border: none; height: auto; padding: 0; color: var(--muted); font-size: 13px; }
+    .btn-ghost:hover { color: var(--text); background: transparent; }
+
+    /* ── Period tabs ── */
+    .period-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .tab-btn {
+      height: 34px; padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit; font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .tab-btn:hover { background: var(--surface2); color: var(--text); }
+    .tab-btn.active {
+      background: var(--accent); color: var(--accent-fg);
+      border-color: var(--accent);
+    }
+    .custom-dates { display: none; margin-top: 12px; }
+    .custom-dates.show { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      font-size: 13px; color: var(--muted);
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+    .status-bar.error { color: var(--danger); background: #fef2f2; border-color: #f5c6c3; }
+    .status-bar.success { color: var(--success); background: #f0faf4; border-color: #a8d5b8; }
+
+    /* ── Record list ── */
+    .records-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .records-count { font-size: 13px; color: var(--muted); }
+    .record-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .record-item:last-child { border-bottom: none; }
+    .record-check { margin-top: 2px; width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; accent-color: var(--accent); }
+    .record-body { flex: 1; min-width: 0; }
+    .record-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .record-meta { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+    .record-tag {
+      display: inline-block; padding: 1px 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 999px; font-size: 11px; font-weight: 500; color: var(--muted);
+    }
+    .record-right { text-align: right; flex-shrink: 0; }
+    .record-amount { font-size: 17px; font-weight: 700; }
+    .record-actions-row { display: flex; gap: 6px; margin-top: 8px; }
+    .empty-state {
+      text-align: center; padding: 40px 20px;
+      color: var(--muted); font-size: 14px;
+    }
+    .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+    /* ── Bulk bar ── */
+    .bulk-bar {
+      display: none; align-items: center; justify-content: space-between;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px;
+      margin-bottom: 12px; font-size: 13px;
+    }
+    .bulk-bar.show { display: flex; }
+
+    /* ── Summary ── */
+    .summary-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .summary-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--surface2);
+      border-radius: 10px;
       font-size: 14px;
     }
-    .checkbox-row { display: flex; align-items: center; gap: 8px; }
-    .record {
-      border: 1px solid #e2e8f0;
-      border-radius: 18px;
-      padding: 14px;
-      margin-bottom: 10px;
-      background: #fff;
+    .summary-row-label { color: var(--muted); font-size: 12px; }
+    .summary-row-val { font-weight: 700; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      display: none; align-items: flex-end; justify-content: center;
+      z-index: 200; padding: 0;
     }
-    .record-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10px;
+    .modal-overlay.open { display: flex; }
+    .modal-sheet {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 32px;
+      width: 100%; max-width: 720px;
+      max-height: 90vh; overflow-y: auto;
     }
-    .record-left {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      flex: 1;
-    }
-    .record-title { font-weight: 800; font-size: 16px; }
-    .record-date { color: var(--muted); font-size: 13px; margin-top: 4px; }
-    .record-right { text-align: right; }
-    .record-amount { font-size: 18px; font-weight: 900; }
-    .badge {
-      display: inline-block;
-      margin-top: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #e2e8f0;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .muted { color: var(--muted); }
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(15,23,42,.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 12px;
-      z-index: 50;
-    }
-    .modal.open { display: flex; }
-    .modal-card {
-      width: 100%;
-      max-width: 520px;
-      background: #fff;
-      border-radius: 20px;
-      padding: 16px;
-    }
-    .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
-    @media (min-width: 768px) {
-      .wrap { padding: 20px; }
-      .top-actions { grid-template-columns: repeat(3, max-content); justify-content: end; }
-      .stats-grid, .summary-grid { grid-template-columns: repeat(3, 1fr); }
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: end;
-        gap: 16px;
-      }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+
+    /* ── Add payTo ── */
+    .payto-add-row { display: flex; gap: 8px; margin-top: 8px; }
+    .payto-add-row input { flex: 1; }
+
+    /* ── Filter row ── */
+    .filter-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .filter-row input { flex: 1; }
+    .filter-row select { width: 140px; flex-shrink: 0; }
+
+    @media (min-width: 600px) {
+      .summary-grid { grid-template-columns: repeat(3, 1fr); }
+      .modal-overlay { align-items: center; padding: 20px; }
+      .modal-sheet { border-radius: 20px; max-height: 80vh; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="sticky">
-      <div class="topbar">
-        <div>
-          <h1>เว็บบันทึกรายจ่ายสำรองจ่าย</h1>
-          <div class="sub">เวอร์ชัน sync ข้ามหลายเครื่องด้วย Google Sheets + Apps Script</div>
-        </div>
-        <div class="top-actions">
-          <button id="syncBtn">Sync ข้อมูล</button>
-          <button id="deleteSelectedBtn">ลบที่เลือก (0)</button>
-          <button class="btn-primary" id="exportBtn">Export CSV</button>
-        </div>
-      </div>
+
+<div class="header">
+  <div class="header-inner">
+    <h1>รายจ่ายสำรอง</h1>
+    <div class="header-actions">
+      <button class="btn btn-sm" id="syncBtn">⟳ Sync</button>
+      <button class="btn btn-sm btn-primary" id="exportBtn">↓ CSV</button>
     </div>
+  </div>
+</div>
 
-    <div class="card">
-      <div class="card-title" style="margin-bottom:12px;">เพิ่มรายการ</div>
-      <div class="field">
-        <label class="label">จ่ายค่าอะไร</label>
-        <input id="itemInput" placeholder="เช่น ค่าน้ำมัน, ค่าขนส่ง, ค่าอาหาร" />
-      </div>
-      <div class="field">
-        <label class="label">จำนวนเงิน</label>
-        <input id="amountInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
-      </div>
-      <div class="field">
-        <label class="label">จ่ายให้ใคร</label>
-        <select id="payToInput"></select>
-      </div>
-      <div class="mini-box">
-        <div class="mini-title">เพิ่มตัวเลือก “จ่ายให้ใคร”</div>
-        <div class="inline-row">
-          <input id="newPayToInput" placeholder="เช่น บ้าน, ร้าน, คลังสินค้า" />
-          <button id="addPayToBtn">เพิ่ม</button>
-        </div>
-      </div>
-      <div class="hint">วันที่บันทึกอัตโนมัติ: <strong id="todayText"></strong></div>
-      <div class="hint" id="syncStatusBox">สถานะ: พร้อมใช้งาน</div>
-      <button class="btn-primary btn-full" id="addBtn">บันทึกรายการ</button>
+<div class="main">
+
+  <!-- Status -->
+  <div class="status-bar" id="statusBar">พร้อมใช้งาน</div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-box">
+      <div class="stat-label">รายการ</div>
+      <div class="stat-val" id="statCount">0</div>
     </div>
-
-    <div class="stats-grid" id="statsGrid"></div>
-
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">ตัวกรองข้อมูล</div>
-        <button class="btn-link" id="toggleFiltersBtn">แสดง</button>
-      </div>
-      <div id="filtersSection" style="display:none;">
-        <div class="field">
-          <label class="label">เลือกระยะเวลา</label>
-          <select id="filterMode">
-            <option value="daily">รายวัน</option>
-            <option value="weekly">รายสัปดาห์</option>
-            <option value="monthly">รายเดือน</option>
-            <option value="custom">กำหนดเอง</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="label">จ่ายให้ใคร</label>
-          <select id="payToFilter"></select>
-        </div>
-        <div class="field">
-          <label class="label">ค้นหารายการ</label>
-          <input id="keywordInput" placeholder="พิมพ์ชื่อรายการ" />
-        </div>
-        <div class="two-col" id="customDates" style="display:none;">
-          <div class="field">
-            <label class="label">วันที่เริ่มต้น</label>
-            <input id="customStart" type="date" />
-          </div>
-          <div class="field">
-            <label class="label">วันที่สิ้นสุด</label>
-            <input id="customEnd" type="date" />
-          </div>
-        </div>
-        <button id="resetFiltersBtn">รีเซ็ตตัวกรอง</button>
-      </div>
+    <div class="stat-box">
+      <div class="stat-label">ยอดรวม</div>
+      <div class="stat-val" id="statTotal">฿0</div>
     </div>
-
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">สรุปยอดรวม</div>
-        <button class="btn-link" id="toggleSummariesBtn">แสดง</button>
-      </div>
-      <div class="summary-grid" id="summariesSection" style="display:none;"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title" style="margin-bottom:12px;">รายการที่บันทึก</div>
-      <div id="recordsSection"></div>
+    <div class="stat-box">
+      <div class="stat-label">ช่วงเวลา</div>
+      <div class="stat-val" id="statPeriod" style="font-size:14px;padding-top:4px">เดือนนี้</div>
     </div>
   </div>
 
-  <div class="modal" id="editModal">
-    <div class="modal-card">
-      <div class="modal-title">แก้ไขรายการย้อนหลัง</div>
+  <!-- Add form -->
+  <div class="card">
+    <div class="card-title">เพิ่มรายการใหม่</div>
+    <div class="field">
+      <label>จ่ายค่าอะไร</label>
+      <input id="fItem" placeholder="เช่น ค่าน้ำมัน, ค่าอาหาร, ค่าขนส่ง" />
+    </div>
+    <div class="two-col">
       <div class="field">
-        <label class="label">จ่ายค่าอะไร</label>
-        <input id="editItemInput" />
+        <label>จำนวนเงิน (บาท)</label>
+        <input id="fAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
       </div>
       <div class="field">
-        <label class="label">จำนวนเงิน</label>
-        <input id="editAmountInput" type="number" inputmode="decimal" min="0" step="0.01" />
+        <label>จ่ายให้ใคร</label>
+        <select id="fPayTo"></select>
       </div>
-      <div class="field">
-        <label class="label">จ่ายให้ใคร</label>
-        <select id="editPayToInput"></select>
-      </div>
-      <div class="hint">วันที่บันทึกเดิม: <strong id="editDateText"></strong></div>
-      <div class="modal-actions">
-        <button id="cancelEditBtn">ยกเลิก</button>
-        <button class="btn-primary" id="saveEditBtn">บันทึกการแก้ไข</button>
-      </div>
+    </div>
+    <div class="payto-add-row">
+      <input id="fNewPayTo" placeholder="เพิ่มตัวเลือก "จ่ายให้ใคร"" />
+      <button class="btn btn-sm" id="addPayToBtn">+ เพิ่ม</button>
+    </div>
+    <div class="date-chip" style="margin-top:14px">
+      📅 วันที่บันทึก: <span id="todayDisplay"></span>
+    </div>
+    <button class="btn btn-primary btn-full" id="addBtn">บันทึกรายการ</button>
+  </div>
+
+  <!-- Period filter -->
+  <div class="card">
+    <div class="card-title">ช่วงเวลา</div>
+    <div class="period-tabs">
+      <button class="tab-btn" data-period="daily">วันนี้</button>
+      <button class="tab-btn" data-period="weekly">สัปดาห์นี้</button>
+      <button class="tab-btn active" data-period="monthly">เดือนนี้</button>
+      <button class="tab-btn" data-period="all">ทั้งหมด</button>
+      <button class="tab-btn" data-period="custom">กำหนดเอง</button>
+    </div>
+    <div class="custom-dates" id="customDates">
+      <div class="field"><label>จากวันที่</label><input type="date" id="fFrom" /></div>
+      <div class="field"><label>ถึงวันที่</label><input type="date" id="fTo" /></div>
+    </div>
+    <div class="filter-row">
+      <input id="fKeyword" placeholder="🔍 ค้นหารายการ..." />
+      <select id="fPayToFilter"></select>
     </div>
   </div>
 
-  <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzaYifkFruPWCV-B8k5g_Hz_ivBjgfwrZnkfbKZuDMP4sAqXyrQa2q3J-QfCKiWR_-0/exec';
-    const STORAGE_KEY = 'advance-expense-records-v5';
-    const CATEGORY_STORAGE_KEY = 'advance-expense-categories-v2';
-    const DEFAULT_PAY_TO_OPTIONS = ['ส่วนตัว', 'ออฟฟิศ'];
+  <!-- Records -->
+  <div class="card">
+    <div class="records-header">
+      <div class="card-title" style="margin-bottom:0">รายการที่บันทึก</div>
+      <span class="records-count" id="recordsCount"></span>
+    </div>
+    <div class="bulk-bar" id="bulkBar">
+      <span id="bulkLabel">เลือก 0 รายการ</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="selectAllBtn">เลือกทั้งหมด</button>
+        <button class="btn btn-sm btn-danger" id="deleteSelectedBtn">ลบที่เลือก</button>
+      </div>
+    </div>
+    <div id="recordsList"></div>
+  </div>
 
-    const state = {
-      records: [],
-      payToOptions: [...DEFAULT_PAY_TO_OPTIONS],
-      selectedIds: [],
-      showFilters: false,
-      showSummaries: false,
-      editingRecordId: null,
-      lastSyncText: '',
-    };
+  <!-- Summary -->
+  <div class="card">
+    <div class="card-title">สรุปยอด</div>
+    <div class="summary-grid" id="summaryGrid"></div>
+  </div>
 
-    const el = {
-      itemInput: document.getElementById('itemInput'),
-      amountInput: document.getElementById('amountInput'),
-      payToInput: document.getElementById('payToInput'),
-      newPayToInput: document.getElementById('newPayToInput'),
-      addPayToBtn: document.getElementById('addPayToBtn'),
-      addBtn: document.getElementById('addBtn'),
-      todayText: document.getElementById('todayText'),
-      deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
-      exportBtn: document.getElementById('exportBtn'),
-      syncBtn: document.getElementById('syncBtn'),
-      syncStatusBox: document.getElementById('syncStatusBox'),
-      filterMode: document.getElementById('filterMode'),
-      payToFilter: document.getElementById('payToFilter'),
-      keywordInput: document.getElementById('keywordInput'),
-      customStart: document.getElementById('customStart'),
-      customEnd: document.getElementById('customEnd'),
-      customDates: document.getElementById('customDates'),
-      resetFiltersBtn: document.getElementById('resetFiltersBtn'),
-      toggleFiltersBtn: document.getElementById('toggleFiltersBtn'),
-      filtersSection: document.getElementById('filtersSection'),
-      toggleSummariesBtn: document.getElementById('toggleSummariesBtn'),
-      summariesSection: document.getElementById('summariesSection'),
-      statsGrid: document.getElementById('statsGrid'),
-      recordsSection: document.getElementById('recordsSection'),
-      editModal: document.getElementById('editModal'),
-      editItemInput: document.getElementById('editItemInput'),
-      editAmountInput: document.getElementById('editAmountInput'),
-      editPayToInput: document.getElementById('editPayToInput'),
-      editDateText: document.getElementById('editDateText'),
-      cancelEditBtn: document.getElementById('cancelEditBtn'),
-      saveEditBtn: document.getElementById('saveEditBtn'),
-    };
+</div>
 
-    function formatDate(dateStr) {
-      const date = new Date(dateStr);
-      if (Number.isNaN(date.getTime())) return '-';
-      return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
-    }
+<!-- Edit modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-sheet">
+    <div class="modal-title">แก้ไขรายการ</div>
+    <div class="field"><label>จ่ายค่าอะไร</label><input id="eItem" /></div>
+    <div class="two-col">
+      <div class="field"><label>จำนวนเงิน</label><input id="eAmount" type="number" inputmode="decimal" min="0" step="0.01" /></div>
+      <div class="field"><label>จ่ายให้ใคร</label><select id="ePayTo"></select></div>
+    </div>
+    <div class="date-chip"><span id="eDateDisplay"></span></div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelEditBtn">ยกเลิก</button>
+      <button class="btn btn-primary" id="saveEditBtn">บันทึก</button>
+    </div>
+  </div>
+</div>
 
-    function formatMonthLabel(dateStr) {
-      const date = new Date(dateStr);
-      if (Number.isNaN(date.getTime())) return '-';
-      return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: 'long' }).format(date);
-    }
+<script>
+// ════════════════════════════════════════
+// CONFIG — เปลี่ยน API_URL ตรงนี้
+// ════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbzaYifkFruPWCV-B8k5g_Hz_ivBjgfwrZnkfbKZuDMP4sAqXyrQa2q3J-QfCKiWR_-0/exec';
+const LS_RECORDS = 'exp_records_v1';
+const LS_PAYTO   = 'exp_payto_v1';
+const DEFAULT_PAYTO = ['ส่วนตัว', 'ออฟฟิศ'];
 
-    function formatMoney(value) {
-      return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
-    }
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+let records   = [];
+let payToOpts = [...DEFAULT_PAYTO];
+let period    = 'monthly';
+let selected  = new Set();
+let editingId = null;
 
-    function getTodayLocal() {
-      const now = new Date();
-      const offset = now.getTimezoneOffset();
-      const local = new Date(now.getTime() - offset * 60 * 1000);
-      return local.toISOString().slice(0, 10);
-    }
+// ════════════════════════════════════════
+// DATE HELPERS — ทำงานแบบ string เท่านั้น ไม่มีปัญหา timezone
+// ════════════════════════════════════════
+function today() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
-    function getStartOfWeek(date) {
-      const d = new Date(date);
-      const day = d.getDay();
-      const diff = day === 0 ? -6 : 1 - day;
-      d.setDate(d.getDate() + diff);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    }
+function toISO(d) {
+  // รับ Date object → คืน YYYY-MM-DD ตาม local time
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
-    function getEndOfWeek(date) {
-      const start = getStartOfWeek(date);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      return end;
-    }
+function parseISO(str) {
+  // รับ string YYYY-MM-DD → Date object ใน local time
+  if (!str || str.length < 10) return null;
+  const s = str.slice(0, 10);
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 
-    function getStartOfMonth(date) {
-      const d = new Date(date);
-      return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
-    }
+function weekRange() {
+  const t = parseISO(today());
+  const day = t.getDay();
+  const mon = new Date(t); mon.setDate(t.getDate() - (day === 0 ? 6 : day - 1));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { from: toISO(mon), to: toISO(sun) };
+}
 
-    function getEndOfMonth(date) {
-      const d = new Date(date);
-      return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-    }
+function monthRange() {
+  const t = today();
+  const [y, m] = t.split('-');
+  const last = new Date(Number(y), Number(m), 0);
+  return { from: `${y}-${m}-01`, to: toISO(last) };
+}
 
-    function getWeekLabel(dateStr) {
-      const date = new Date(dateStr + 'T00:00:00');
-      const start = getStartOfWeek(date);
-      const end = getEndOfWeek(date);
-      const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(start);
-      const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(end);
-      return `${startLabel} - ${endLabel}`;
-    }
+function inRange(dateStr) {
+  const d = (dateStr || '').slice(0, 10);
+  if (!d) return false;
+  if (period === 'daily') return d === today();
+  if (period === 'weekly') { const r = weekRange(); return d >= r.from && d <= r.to; }
+  if (period === 'monthly') { const r = monthRange(); return d >= r.from && d <= r.to; }
+  if (period === 'all') return true;
+  if (period === 'custom') {
+    const from = document.getElementById('fFrom').value;
+    const to   = document.getElementById('fTo').value;
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  }
+  return true;
+}
 
-    function isInRange(itemDate, mode, customStart, customEnd) {
-      const target = new Date(itemDate + 'T00:00:00');
-      const today = new Date();
-      if (mode === 'daily') return itemDate === getTodayLocal();
-      if (mode === 'weekly') return target >= getStartOfWeek(today) && target <= getEndOfWeek(today);
-      if (mode === 'monthly') return target >= getStartOfMonth(today) && target <= getEndOfMonth(today);
-      if (mode === 'custom') {
-        if (!customStart && !customEnd) return true;
-        const start = customStart ? new Date(customStart + 'T00:00:00') : null;
-        const end = customEnd ? new Date(customEnd + 'T23:59:59') : null;
-        if (start && target < start) return false;
-        if (end && target > end) return false;
-        return true;
-      }
-      return true;
-    }
+function fmtDate(str) {
+  const d = parseISO(str);
+  if (!d) return str || '-';
+  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
-    function exportCSV(rows) {
-      const headers = ['วันที่บันทึก', 'รายการ', 'จ่ายให้ใคร', 'จำนวนเงิน'];
-      const csvRows = [
-        headers.join(','),
-        ...rows.map((row) => [
-          `"${row.date}"`,
-          `"${String(row.item).replace(/"/g, '""')}"`,
-          `"${String(row.payTo || '-').replace(/"/g, '""')}"`,
-          `"${Number(row.amount).toFixed(2)}"`,
-        ].join(',')),
-      ];
-      const blob = new Blob(['\ufeff' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `expense-export-${getTodayLocal()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+function fmtMoney(v) {
+  return '฿' + Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
-    function buildSummary(records, type) {
-      const map = new Map();
-      records.forEach((record) => {
-        let key = record.date;
-        let label = formatDate(record.date);
-        if (type === 'weekly') { key = getWeekLabel(record.date); label = key; }
-        if (type === 'monthly') { key = record.date.slice(0, 7); label = formatMonthLabel(record.date); }
-        if (!map.has(key)) map.set(key, { key, label, total: 0, count: 0 });
-        const current = map.get(key);
-        current.total += Number(record.amount || 0);
-        current.count += 1;
-      });
-      return Array.from(map.values()).sort((a, b) => String(b.key).localeCompare(String(a.key)));
-    }
+function periodLabel() {
+  const map = { daily: 'วันนี้', weekly: 'สัปดาห์นี้', monthly: 'เดือนนี้', all: 'ทั้งหมด', custom: 'กำหนดเอง' };
+  return map[period] || '';
+}
 
-    function saveLocal() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
-      localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(state.payToOptions));
-    }
+// ════════════════════════════════════════
+// LOCAL STORAGE
+// ════════════════════════════════════════
+function saveLocal() {
+  try { localStorage.setItem(LS_RECORDS, JSON.stringify(records)); } catch(e) {}
+  try { localStorage.setItem(LS_PAYTO, JSON.stringify(payToOpts)); } catch(e) {}
+}
 
-    function loadLocal() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        state.records = Array.isArray(saved) ? saved : [];
-      } catch { state.records = []; }
+function loadLocal() {
+  try { const r = JSON.parse(localStorage.getItem(LS_RECORDS)); if (Array.isArray(r)) records = r; } catch(e) {}
+  try { const p = JSON.parse(localStorage.getItem(LS_PAYTO)); if (Array.isArray(p) && p.length) payToOpts = p; } catch(e) {}
+}
 
-      try {
-        const savedOptions = JSON.parse(localStorage.getItem(CATEGORY_STORAGE_KEY) || 'null');
-        if (Array.isArray(savedOptions) && savedOptions.length) state.payToOptions = savedOptions;
-      } catch {}
-    }
+// ════════════════════════════════════════
+// API
+// ════════════════════════════════════════
+async function apiGet() {
+  const res = await fetch(API_URL + '?action=list');
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.message || 'api error');
+  return data;
+}
 
-    function renderSyncStatus(message) {
-      el.syncStatusBox.textContent = 'สถานะ: ' + message;
-    }
+async function apiPost(body) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.message || 'api error');
+  return data;
+}
 
-    function jsonpRequest(params) {
-      return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-        const query = new URLSearchParams({ ...params, callback: callbackName });
-        const script = document.createElement('script');
-        const timeout = setTimeout(() => {
-          cleanup();
-          reject(new Error('Timeout'));
-        }, 15000);
+function applyServerData(data) {
+  if (Array.isArray(data.records)) {
+    // normalize date จาก server ให้เป็น YYYY-MM-DD เสมอ
+    records = data.records.map(r => ({
+      ...r,
+      date: normalizeDate(r.date),
+    }));
+  }
+  if (Array.isArray(data.payToOptions) && data.payToOptions.length) payToOpts = data.payToOptions;
+  saveLocal();
+}
 
-        function cleanup() {
-          clearTimeout(timeout);
-          if (script.parentNode) script.parentNode.removeChild(script);
-          try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
-        }
+function normalizeDate(str) {
+  if (!str) return today();
+  const s = String(str).trim();
+  // ถ้าเป็น YYYY-MM-DD แล้ว คืนตรงๆ
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // ไม่งั้น parse แล้ว convert
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return toISO(d);
+  return today();
+}
 
-        window[callbackName] = function(data) {
-          cleanup();
-          resolve(data);
-        };
+// ════════════════════════════════════════
+// STATUS
+// ════════════════════════════════════════
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+}
 
-        script.onerror = function() {
-          cleanup();
-          reject(new Error('JSONP load error'));
-        };
-
-        script.src = API_URL + '?' + query.toString();
-        document.body.appendChild(script);
-      });
-    }
-
-    async function syncFromServer(showMessage = true) {
-      renderSyncStatus('กำลังดึงข้อมูลจากเซิร์ฟเวอร์...');
-      try {
-        const data = await jsonpRequest({ action: 'list' });
-        if (!data || !data.ok) throw new Error((data && data.message) || 'Sync failed');
-        state.records = Array.isArray(data.records) ? data.records : [];
-        state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : [...DEFAULT_PAY_TO_OPTIONS];
-        saveLocal();
-        state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-        render();
-        if (showMessage) renderSyncStatus('ซิงก์ข้อมูลสำเร็จ • ' + state.lastSyncText);
-      } catch (err) {
-        renderSyncStatus('ดึงข้อมูลไม่สำเร็จ • ใช้ข้อมูลในเครื่องแทน');
-      }
-    }
-
-    async function upsertServerRecord(record) {
-      renderSyncStatus('กำลังบันทึกข้อมูล...');
-      const data = await jsonpRequest({
-        action: 'upsert_record',
-        id: record.id,
-        item: record.item,
-        amount: String(record.amount),
-        payTo: record.payTo,
-        date: record.date,
-        updatedAt: record.updatedAt,
-      });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Save failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('บันทึกสำเร็จ • ' + state.lastSyncText);
-    }
-
-    async function deleteServerRecord(id) {
-      renderSyncStatus('กำลังลบข้อมูล...');
-      const data = await jsonpRequest({ action: 'delete_record', id });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Delete failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('ลบสำเร็จ • ' + state.lastSyncText);
-    }
-
-    async function deleteManyServer(ids) {
-      renderSyncStatus('กำลังลบหลายรายการ...');
-      const data = await jsonpRequest({ action: 'delete_many', ids: ids.join(',') });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Delete many failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('ลบข้อมูลสำเร็จ • ' + state.lastSyncText);
-    }
-
-    async function setServerPayToOptions(options) {
-      renderSyncStatus('กำลังอัปเดตตัวเลือก...');
-      const data = await jsonpRequest({ action: 'set_payto_options', payToOptions: options.join(',') });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Update options failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : options;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('อัปเดตตัวเลือกสำเร็จ • ' + state.lastSyncText);
-    }
-
-    function getFilteredRecords() {
-      const mode = el.filterMode.value;
-      const keyword = el.keywordInput.value.trim().toLowerCase();
-      const payToFilter = el.payToFilter.value;
-      return [...state.records]
-        .filter((r) => isInRange(r.date, mode, el.customStart.value, el.customEnd.value))
-        .filter((r) => String(r.item || '').toLowerCase().includes(keyword))
-        .filter((r) => payToFilter === 'all' ? true : r.payTo === payToFilter)
-        .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
-    }
-
-    function renderSelectOptions() {
-      const currentPayTo = el.payToInput.value || state.payToOptions[0] || '';
-      el.payToInput.innerHTML = state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
-      el.payToInput.value = state.payToOptions.includes(currentPayTo) ? currentPayTo : state.payToOptions[0] || '';
-
-      const currentFilter = el.payToFilter.value || 'all';
-      el.payToFilter.innerHTML = `<option value="all">ทั้งหมด</option>` + state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
-      el.payToFilter.value = (currentFilter === 'all' || state.payToOptions.includes(currentFilter)) ? currentFilter : 'all';
-
-      const currentEdit = el.editPayToInput.value || state.payToOptions[0] || '';
-      el.editPayToInput.innerHTML = state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
-      el.editPayToInput.value = state.payToOptions.includes(currentEdit) ? currentEdit : state.payToOptions[0] || '';
-    }
-
-    function renderStats(filteredRecords) {
-      const totalAmount = filteredRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-      const modeText = el.filterMode.value === 'daily' ? 'รายวัน' : el.filterMode.value === 'weekly' ? 'รายสัปดาห์' : el.filterMode.value === 'monthly' ? 'รายเดือน' : 'กำหนดเอง';
-      const stats = [
-        { label: 'จำนวนรายการ', value: filteredRecords.length },
-        { label: 'ยอดรวม', value: `฿${formatMoney(totalAmount)}` },
-        { label: 'ช่วงที่กำลังดู', value: modeText },
-      ];
-      el.statsGrid.innerHTML = stats.map((s) => `
-        <div class="stat">
-          <div class="stat-label">${s.label}</div>
-          <div class="stat-value">${s.value}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderSummaries(filteredRecords) {
-      const cards = [
-        { title: 'สรุปรายวัน', data: buildSummary(filteredRecords, 'daily') },
-        { title: 'สรุปรายสัปดาห์', data: buildSummary(filteredRecords, 'weekly') },
-        { title: 'สรุปรายเดือน', data: buildSummary(filteredRecords, 'monthly') },
-      ];
-      el.summariesSection.innerHTML = cards.map((card) => `
-        <div class="summary-item">
-          <div class="mini-title">${card.title}</div>
-          ${card.data.length === 0 ? `<div class="muted">ยังไม่มีข้อมูล</div>` : card.data.slice(0,5).map((row) => `
-            <div class="summary-row">
-              <div>
-                <div class="summary-row-title">${row.label}</div>
-                <div class="summary-row-sub">${row.count} รายการ</div>
-              </div>
-              <div class="summary-row-amount">฿${formatMoney(row.total)}</div>
-            </div>
-          `).join('')}
-        </div>
-      `).join('');
-    }
-
-    function escapeHtml(text) {
-      return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function renderRecords(filteredRecords) {
-      if (!filteredRecords.length) {
-        el.recordsSection.innerHTML = `<div class="empty">ยังไม่มีรายการในช่วงเวลานี้</div>`;
-        return;
-      }
-      const allVisibleSelected = filteredRecords.length > 0 && filteredRecords.every((record) => state.selectedIds.includes(record.id));
-      el.recordsSection.innerHTML = `
-        <div class="select-all">
-          <label class="checkbox-row"><input type="checkbox" id="selectAllBox" ${allVisibleSelected ? 'checked' : ''}> <span>เลือกทั้งหมด</span></label>
-          <span class="muted">${filteredRecords.length} รายการ</span>
-        </div>
-        ${filteredRecords.map((record) => `
-          <div class="record">
-            <div class="record-top">
-              <div class="record-left">
-                <input type="checkbox" class="select-one" data-id="${record.id}" ${state.selectedIds.includes(record.id) ? 'checked' : ''}>
-                <div>
-                  <div class="record-title">${escapeHtml(record.item)}</div>
-                  <div class="record-date">${formatDate(record.date)}</div>
-                </div>
-              </div>
-              <div class="record-right">
-                <div class="record-amount">฿${formatMoney(record.amount)}</div>
-                <div class="badge">${escapeHtml(record.payTo || '-')}</div>
-              </div>
-            </div>
-            <div class="record-actions">
-              <button class="edit-btn" data-id="${record.id}">แก้ไข</button>
-              <button class="delete-btn" data-id="${record.id}">ลบ</button>
-            </div>
-          </div>
-        `).join('')}
-      `;
-
-      document.getElementById('selectAllBox').addEventListener('change', (e) => {
-        state.selectedIds = e.target.checked ? filteredRecords.map((r) => r.id) : [];
-        render();
-      });
-
-      document.querySelectorAll('.select-one').forEach((box) => {
-        box.addEventListener('change', (e) => {
-          const id = e.target.dataset.id;
-          if (e.target.checked) state.selectedIds = [...new Set([...state.selectedIds, id])];
-          else state.selectedIds = state.selectedIds.filter((x) => x !== id);
-          render();
-        });
-      });
-
-      document.querySelectorAll('.delete-btn').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.id;
-          state.selectedIds = state.selectedIds.filter((x) => x !== id);
-          try {
-            await deleteServerRecord(id);
-          } catch (err) {
-            renderSyncStatus('ลบไม่สำเร็จ');
-          }
-        });
-      });
-
-      document.querySelectorAll('.edit-btn').forEach((btn) => {
-        btn.addEventListener('click', () => openEdit(btn.dataset.id));
-      });
-    }
-
-    function openEdit(id) {
-      const record = state.records.find((r) => r.id === id);
-      if (!record) return;
-      state.editingRecordId = id;
-      el.editItemInput.value = record.item;
-      el.editAmountInput.value = record.amount;
-      el.editPayToInput.value = record.payTo || state.payToOptions[0] || '';
-      el.editDateText.textContent = formatDate(record.date);
-      el.editModal.classList.add('open');
-    }
-
-    function closeEdit() {
-      state.editingRecordId = null;
-      el.editModal.classList.remove('open');
-    }
-
-    function render() {
-      renderSelectOptions();
-      el.todayText.textContent = formatDate(getTodayLocal());
-      el.filtersSection.style.display = state.showFilters ? 'block' : 'none';
-      el.summariesSection.style.display = state.showSummaries ? 'grid' : 'none';
-      el.toggleFiltersBtn.textContent = state.showFilters ? 'ซ่อน' : 'แสดง';
-      el.toggleSummariesBtn.textContent = state.showSummaries ? 'ซ่อน' : 'แสดง';
-      el.customDates.style.display = el.filterMode.value === 'custom' ? 'grid' : 'none';
-      const filtered = getFilteredRecords();
-      renderStats(filtered);
-      renderSummaries(filtered);
-      renderRecords(filtered);
-      el.deleteSelectedBtn.textContent = `ลบที่เลือก (${state.selectedIds.length})`;
-      el.deleteSelectedBtn.disabled = state.selectedIds.length === 0;
-      el.exportBtn.disabled = filtered.length === 0;
-    }
-
-    el.addBtn.addEventListener('click', async () => {
-      const item = el.itemInput.value.trim();
-      const amount = Number(el.amountInput.value);
-      const payTo = el.payToInput.value;
-      if (!item || !amount || amount <= 0 || !payTo) return;
-      const record = {
-        id: crypto.randomUUID(),
-        item,
-        amount,
-        payTo,
-        date: getTodayLocal(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      try {
-        await upsertServerRecord(record);
-        el.itemInput.value = '';
-        el.amountInput.value = '';
-      } catch (err) {
-        renderSyncStatus('บันทึกไม่สำเร็จ');
-      }
-    });
-
-    el.addPayToBtn.addEventListener('click', async () => {
-      const value = el.newPayToInput.value.trim();
-      if (!value) return;
-      const next = state.payToOptions.includes(value) ? state.payToOptions : [...state.payToOptions, value];
-      try {
-        await setServerPayToOptions(next);
-        el.newPayToInput.value = '';
-        renderSelectOptions();
-        el.payToInput.value = value;
-        render();
-      } catch (err) {
-        renderSyncStatus('อัปเดตตัวเลือกไม่สำเร็จ');
-      }
-    });
-
-    el.exportBtn.addEventListener('click', () => exportCSV(getFilteredRecords()));
-    el.syncBtn.addEventListener('click', () => syncFromServer(true));
-
-    el.deleteSelectedBtn.addEventListener('click', async () => {
-      if (!state.selectedIds.length) return;
-      try {
-        await deleteManyServer(state.selectedIds);
-        state.selectedIds = [];
-      } catch (err) {
-        renderSyncStatus('ลบหลายรายการไม่สำเร็จ');
-      }
-    });
-
-    el.toggleFiltersBtn.addEventListener('click', () => { state.showFilters = !state.showFilters; render(); });
-    el.toggleSummariesBtn.addEventListener('click', () => { state.showSummaries = !state.showSummaries; render(); });
-    el.filterMode.addEventListener('change', render);
-    el.payToFilter.addEventListener('change', render);
-    el.keywordInput.addEventListener('input', render);
-    el.customStart.addEventListener('change', render);
-    el.customEnd.addEventListener('change', render);
-
-    el.resetFiltersBtn.addEventListener('click', () => {
-      el.filterMode.value = 'daily';
-      el.payToFilter.value = 'all';
-      el.keywordInput.value = '';
-      el.customStart.value = '';
-      el.customEnd.value = '';
-      state.selectedIds = [];
-      render();
-    });
-
-    el.cancelEditBtn.addEventListener('click', closeEdit);
-    el.saveEditBtn.addEventListener('click', async () => {
-      const id = state.editingRecordId;
-      const record = state.records.find((r) => r.id === id);
-      if (!record) return;
-      const item = el.editItemInput.value.trim();
-      const amount = Number(el.editAmountInput.value);
-      const payTo = el.editPayToInput.value;
-      if (!item || !amount || amount <= 0 || !payTo) return;
-      const nextRecord = {
-        ...record,
-        item,
-        amount,
-        payTo,
-        updatedAt: new Date().toISOString(),
-      };
-      try {
-        await upsertServerRecord(nextRecord);
-        closeEdit();
-      } catch (err) {
-        renderSyncStatus('บันทึกการแก้ไขไม่สำเร็จ');
-      }
-    });
-
-    el.editModal.addEventListener('click', (e) => {
-      if (e.target === el.editModal) closeEdit();
-    });
-
-    loadLocal();
+// ════════════════════════════════════════
+// SYNC
+// ════════════════════════════════════════
+async function sync(showMsg = true) {
+  setStatus('กำลัง sync...');
+  try {
+    const data = await apiGet();
+    applyServerData(data);
     render();
-    syncFromServer(false);
-  </script>
+    if (showMsg) setStatus('✓ sync สำเร็จ · ' + new Date().toLocaleTimeString('th-TH'), 'success');
+    else setStatus('พร้อมใช้งาน');
+  } catch(e) {
+    setStatus('⚠ sync ไม่สำเร็จ · ใช้ข้อมูลในเครื่อง', 'error');
+  }
+}
+
+// ════════════════════════════════════════
+// ADD / EDIT / DELETE
+// ════════════════════════════════════════
+async function addRecord() {
+  const item   = document.getElementById('fItem').value.trim();
+  const amount = parseFloat(document.getElementById('fAmount').value);
+  const payTo  = document.getElementById('fPayTo').value;
+  if (!item)          { setStatus('⚠ กรุณาระบุรายการ', 'error'); return; }
+  if (!amount || amount <= 0) { setStatus('⚠ กรุณาระบุจำนวนเงิน', 'error'); return; }
+  if (!payTo)         { setStatus('⚠ กรุณาเลือกจ่ายให้ใคร', 'error'); return; }
+
+  const rec = {
+    id: crypto.randomUUID(),
+    item, amount, payTo,
+    date: today(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  setStatus('กำลังบันทึก...');
+  try {
+    const data = await apiPost({ action: 'upsert_record', record: rec });
+    applyServerData(data);
+    document.getElementById('fItem').value = '';
+    document.getElementById('fAmount').value = '';
+    render();
+    setStatus('✓ บันทึกสำเร็จ', 'success');
+  } catch(e) {
+    setStatus('⚠ บันทึกไม่สำเร็จ: ' + e.message, 'error');
+  }
+}
+
+async function saveEdit() {
+  const rec = records.find(r => r.id === editingId);
+  if (!rec) return;
+  const item   = document.getElementById('eItem').value.trim();
+  const amount = parseFloat(document.getElementById('eAmount').value);
+  const payTo  = document.getElementById('ePayTo').value;
+  if (!item || !amount || amount <= 0 || !payTo) return;
+
+  const updated = { ...rec, item, amount, payTo, updatedAt: new Date().toISOString() };
+  setStatus('กำลังบันทึก...');
+  try {
+    const data = await apiPost({ action: 'upsert_record', record: updated });
+    applyServerData(data);
+    closeEdit();
+    render();
+    setStatus('✓ แก้ไขสำเร็จ', 'success');
+  } catch(e) {
+    setStatus('⚠ แก้ไขไม่สำเร็จ', 'error');
+  }
+}
+
+async function deleteRecord(id) {
+  setStatus('กำลังลบ...');
+  try {
+    const data = await apiPost({ action: 'delete_record', id });
+    applyServerData(data);
+    selected.delete(id);
+    render();
+    setStatus('✓ ลบสำเร็จ', 'success');
+  } catch(e) {
+    setStatus('⚠ ลบไม่สำเร็จ', 'error');
+  }
+}
+
+async function deleteSelected() {
+  if (!selected.size) return;
+  setStatus('กำลังลบ...');
+  try {
+    const data = await apiPost({ action: 'delete_many', ids: [...selected] });
+    applyServerData(data);
+    selected.clear();
+    render();
+    setStatus('✓ ลบสำเร็จ', 'success');
+  } catch(e) {
+    setStatus('⚠ ลบไม่สำเร็จ', 'error');
+  }
+}
+
+async function addPayTo() {
+  const val = document.getElementById('fNewPayTo').value.trim();
+  if (!val || payToOpts.includes(val)) return;
+  const next = [...payToOpts, val];
+  setStatus('กำลังอัปเดต...');
+  try {
+    const data = await apiPost({ action: 'set_payto_options', payToOptions: next });
+    applyServerData(data);
+    document.getElementById('fNewPayTo').value = '';
+    renderPayToSelects(val);
+    setStatus('✓ เพิ่มตัวเลือกสำเร็จ', 'success');
+  } catch(e) {
+    setStatus('⚠ เพิ่มตัวเลือกไม่สำเร็จ', 'error');
+  }
+}
+
+// ════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════
+function exportCSV() {
+  const rows = getFiltered();
+  if (!rows.length) { setStatus('⚠ ไม่มีรายการให้ export', 'error'); return; }
+  const hdr = ['วันที่', 'รายการ', 'จ่ายให้ใคร', 'จำนวนเงิน'];
+  const lines = rows.map(r => [
+    `"${r.date}"`,
+    `"${String(r.item).replace(/"/g,'""')}"`,
+    `"${String(r.payTo||'').replace(/"/g,'""')}"`,
+    `"${Number(r.amount).toFixed(2)}"`,
+  ].join(','));
+  const csv = '\uFEFF' + hdr.join(',') + '\n' + lines.join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = `รายจ่าย_${periodLabel()}_${today()}.csv`;
+  a.click();
+}
+
+// ════════════════════════════════════════
+// FILTER
+// ════════════════════════════════════════
+function getFiltered() {
+  const kw = document.getElementById('fKeyword').value.trim().toLowerCase();
+  const pt = document.getElementById('fPayToFilter').value;
+  return records
+    .filter(r => inRange(r.date))
+    .filter(r => !kw || (r.item || '').toLowerCase().includes(kw))
+    .filter(r => pt === 'all' || r.payTo === pt)
+    .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+}
+
+// ════════════════════════════════════════
+// EDIT MODAL
+// ════════════════════════════════════════
+function openEdit(id) {
+  const rec = records.find(r => r.id === id);
+  if (!rec) return;
+  editingId = id;
+  document.getElementById('eItem').value   = rec.item;
+  document.getElementById('eAmount').value = rec.amount;
+  renderPayToSelects();
+  document.getElementById('ePayTo').value  = rec.payTo || payToOpts[0] || '';
+  document.getElementById('eDateDisplay').textContent = fmtDate(rec.date);
+  document.getElementById('editModal').classList.add('open');
+}
+function closeEdit() {
+  editingId = null;
+  document.getElementById('editModal').classList.remove('open');
+}
+
+// ════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════
+function renderPayToSelects(selectVal) {
+  const opts = payToOpts.map(o => `<option value="${o}">${o}</option>`).join('');
+  const allOpt = `<option value="all">ทั้งหมด</option>`;
+
+  const fPayTo = document.getElementById('fPayTo');
+  const prev = selectVal || fPayTo.value;
+  fPayTo.innerHTML = opts;
+  if (payToOpts.includes(prev)) fPayTo.value = prev;
+
+  const fPayToFilter = document.getElementById('fPayToFilter');
+  const prevF = fPayToFilter.value || 'all';
+  fPayToFilter.innerHTML = allOpt + opts;
+  fPayToFilter.value = prevF;
+
+  const ePayTo = document.getElementById('ePayTo');
+  ePayTo.innerHTML = opts;
+}
+
+function renderSummary(filtered) {
+  const grid = document.getElementById('summaryGrid');
+  const byDay = {}, byWeek = {}, byMonth = {};
+  filtered.forEach(r => {
+    const d = r.date.slice(0, 10);
+    const m = d.slice(0, 7);
+    const w = weekKeyOf(d);
+    byDay[d] = (byDay[d] || 0) + Number(r.amount);
+    byWeek[w] = (byWeek[w] || 0) + Number(r.amount);
+    byMonth[m] = (byMonth[m] || 0) + Number(r.amount);
+  });
+
+  const rows = [
+    ...Object.entries(byDay).sort((a,b) => b[0].localeCompare(a[0])).slice(0,3).map(([k,v]) => [fmtDate(k), v]),
+    ...Object.entries(byWeek).sort((a,b) => b[0].localeCompare(a[0])).slice(0,2).map(([k,v]) => [`สัปดาห์ ${k}`, v]),
+    ...Object.entries(byMonth).sort((a,b) => b[0].localeCompare(a[0])).slice(0,3).map(([k,v]) => {
+      const d = parseISO(k + '-01');
+      return [d ? d.toLocaleDateString('th-TH', { year: 'numeric', month: 'long' }) : k, v];
+    }),
+  ];
+
+  if (!rows.length) { grid.innerHTML = '<div style="color:var(--muted);font-size:14px">ยังไม่มีข้อมูล</div>'; return; }
+  grid.innerHTML = rows.map(([label, val]) => `
+    <div class="summary-row">
+      <span class="summary-row-label">${label}</span>
+      <span class="summary-row-val">${fmtMoney(val)}</span>
+    </div>`).join('');
+}
+
+function weekKeyOf(dateStr) {
+  const d = parseISO(dateStr);
+  if (!d) return dateStr;
+  const day = d.getDay();
+  const mon = new Date(d); mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return toISO(mon);
+}
+
+function render() {
+  document.getElementById('todayDisplay').textContent = fmtDate(today());
+  renderPayToSelects();
+
+  const filtered = getFiltered();
+  const total = filtered.reduce((s, r) => s + Number(r.amount || 0), 0);
+  document.getElementById('statCount').textContent = filtered.length;
+  document.getElementById('statTotal').textContent = fmtMoney(total);
+  document.getElementById('statPeriod').textContent = periodLabel();
+  document.getElementById('recordsCount').textContent = filtered.length + ' รายการ';
+
+  // bulk bar
+  const bulkBar = document.getElementById('bulkBar');
+  if (selected.size > 0) {
+    bulkBar.classList.add('show');
+    document.getElementById('bulkLabel').textContent = `เลือก ${selected.size} รายการ`;
+  } else {
+    bulkBar.classList.remove('show');
+  }
+
+  // records
+  const list = document.getElementById('recordsList');
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>ไม่มีรายการในช่วงเวลานี้</div>`;
+  } else {
+    list.innerHTML = filtered.map(r => `
+      <div class="record-item">
+        <input type="checkbox" class="record-check" data-id="${r.id}" ${selected.has(r.id) ? 'checked' : ''}>
+        <div class="record-body">
+          <div class="record-name">${esc(r.item)}</div>
+          <div class="record-meta">
+            <span>${fmtDate(r.date)}</span>
+            <span class="record-tag">${esc(r.payTo || '-')}</span>
+          </div>
+          <div class="record-actions-row">
+            <button class="btn btn-sm edit-btn" data-id="${r.id}">แก้ไข</button>
+            <button class="btn btn-sm btn-danger del-btn" data-id="${r.id}">ลบ</button>
+          </div>
+        </div>
+        <div class="record-right">
+          <div class="record-amount">${fmtMoney(r.amount)}</div>
+        </div>
+      </div>`).join('');
+
+    list.querySelectorAll('.record-check').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const id = e.target.dataset.id;
+        e.target.checked ? selected.add(id) : selected.delete(id);
+        render();
+      });
+    });
+    list.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => openEdit(btn.dataset.id));
+    });
+    list.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', () => deleteRecord(btn.dataset.id));
+    });
+  }
+
+  renderSummary(filtered);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════
+// EVENTS
+// ════════════════════════════════════════
+document.getElementById('addBtn').addEventListener('click', addRecord);
+document.getElementById('addPayToBtn').addEventListener('click', addPayTo);
+document.getElementById('syncBtn').addEventListener('click', () => sync(true));
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('cancelEditBtn').addEventListener('click', closeEdit);
+document.getElementById('saveEditBtn').addEventListener('click', saveEdit);
+document.getElementById('editModal').addEventListener('click', e => { if (e.target === document.getElementById('editModal')) closeEdit(); });
+
+document.getElementById('fKeyword').addEventListener('input', render);
+document.getElementById('fPayToFilter').addEventListener('change', render);
+document.getElementById('fFrom').addEventListener('change', render);
+document.getElementById('fTo').addEventListener('change', render);
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    period = btn.dataset.period;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const cd = document.getElementById('customDates');
+    period === 'custom' ? cd.classList.add('show') : cd.classList.remove('show');
+    render();
+  });
+});
+
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+  const filtered = getFiltered();
+  if (selected.size === filtered.length) selected.clear();
+  else filtered.forEach(r => selected.add(r.id));
+  render();
+});
+
+document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelected);
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+loadLocal();
+render();
+sync(false);
+</script>
 </body>
 </html>
