@@ -260,7 +260,7 @@
         <select id="payToInput"></select>
       </div>
       <div class="mini-box">
-        <div class="mini-title">เพิ่มตัวเลือก “จ่ายให้ใคร”</div>
+        <div class="mini-title">เพิ่มตัวเลือก "จ่ายให้ใคร"</div>
         <div class="inline-row">
           <input id="newPayToInput" placeholder="เช่น บ้าน, ร้าน, คลังสินค้า" />
           <button id="addPayToBtn">เพิ่ม</button>
@@ -284,7 +284,7 @@
           <select id="filterMode">
             <option value="daily">รายวัน</option>
             <option value="weekly">รายสัปดาห์</option>
-            <option value="monthly">รายเดือน</option>
+            <option value="monthly" selected>รายเดือน</option>
             <option value="custom">กำหนดเอง</option>
           </select>
         </div>
@@ -398,13 +398,13 @@
     };
 
     function formatDate(dateStr) {
-      const date = new Date(dateStr);
+      const date = new Date(dateStr + 'T00:00:00');
       if (Number.isNaN(date.getTime())) return '-';
       return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
     }
 
     function formatMonthLabel(dateStr) {
-      const date = new Date(dateStr);
+      const date = new Date(dateStr + 'T00:00:00');
       if (Number.isNaN(date.getTime())) return '-';
       return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: 'long' }).format(date);
     }
@@ -420,56 +420,65 @@
       return local.toISOString().slice(0, 10);
     }
 
-    function getStartOfWeek(date) {
-      const d = new Date(date);
+    function getStartOfWeek(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
       const day = d.getDay();
       const diff = day === 0 ? -6 : 1 - day;
       d.setDate(d.getDate() + diff);
-      d.setHours(0, 0, 0, 0);
-      return d;
+      return d.toISOString().slice(0, 10);
     }
 
-    function getEndOfWeek(date) {
-      const start = getStartOfWeek(date);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      return end;
+    function getEndOfWeek(dateStr) {
+      const start = new Date(getStartOfWeek(dateStr) + 'T00:00:00');
+      start.setDate(start.getDate() + 6);
+      return start.toISOString().slice(0, 10);
     }
 
-    function getStartOfMonth(date) {
-      const d = new Date(date);
-      return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    function getStartOfMonth(dateStr) {
+      return dateStr.slice(0, 7) + '-01';
     }
 
-    function getEndOfMonth(date) {
-      const d = new Date(date);
-      return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    function getEndOfMonth(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      return lastDay.toISOString().slice(0, 10);
     }
 
     function getWeekLabel(dateStr) {
-      const date = new Date(dateStr + 'T00:00:00');
-      const start = getStartOfWeek(date);
-      const end = getEndOfWeek(date);
-      const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(start);
-      const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(end);
+      const start = getStartOfWeek(dateStr);
+      const end = getEndOfWeek(dateStr);
+      const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(new Date(start + 'T00:00:00'));
+      const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(end + 'T00:00:00'));
       return `${startLabel} - ${endLabel}`;
     }
 
+    // แก้ไข: ใช้ string comparison แทน Date object เพื่อหลีกเลี่ยงปัญหา timezone
     function isInRange(itemDate, mode, customStart, customEnd) {
-      const target = new Date(itemDate + 'T00:00:00');
-      const today = new Date();
-      if (mode === 'daily') return itemDate === getTodayLocal();
-      if (mode === 'weekly') return target >= getStartOfWeek(today) && target <= getEndOfWeek(today);
-      if (mode === 'monthly') return target >= getStartOfMonth(today) && target <= getEndOfMonth(today);
+      if (!itemDate || itemDate.length < 10) return false;
+      const d = itemDate.slice(0, 10); // ตัดให้เหลือแค่ YYYY-MM-DD
+      const today = getTodayLocal();
+
+      if (mode === 'daily') return d === today;
+
+      if (mode === 'weekly') {
+        const start = getStartOfWeek(today);
+        const end = getEndOfWeek(today);
+        return d >= start && d <= end;
+      }
+
+      if (mode === 'monthly') {
+        const start = getStartOfMonth(today);
+        const end = getEndOfMonth(today);
+        return d >= start && d <= end;
+      }
+
       if (mode === 'custom') {
         if (!customStart && !customEnd) return true;
-        const start = customStart ? new Date(customStart + 'T00:00:00') : null;
-        const end = customEnd ? new Date(customEnd + 'T23:59:59') : null;
-        if (start && target < start) return false;
-        if (end && target > end) return false;
+        if (customStart && d < customStart) return false;
+        if (customEnd && d > customEnd) return false;
         return true;
       }
+
       return true;
     }
 
@@ -496,10 +505,11 @@
     function buildSummary(records, type) {
       const map = new Map();
       records.forEach((record) => {
-        let key = record.date;
-        let label = formatDate(record.date);
-        if (type === 'weekly') { key = getWeekLabel(record.date); label = key; }
-        if (type === 'monthly') { key = record.date.slice(0, 7); label = formatMonthLabel(record.date); }
+        const d = (record.date || '').slice(0, 10);
+        let key = d;
+        let label = formatDate(d);
+        if (type === 'weekly') { key = getWeekLabel(d); label = key; }
+        if (type === 'monthly') { key = d.slice(0, 7); label = formatMonthLabel(d); }
         if (!map.has(key)) map.set(key, { key, label, total: 0, count: 0 });
         const current = map.get(key);
         current.total += Number(record.amount || 0);
@@ -837,7 +847,7 @@
     el.customEnd.addEventListener('change', render);
 
     el.resetFiltersBtn.addEventListener('click', () => {
-      el.filterMode.value = 'daily';
+      el.filterMode.value = 'monthly';
       el.payToFilter.value = 'all';
       el.keywordInput.value = '';
       el.customStart.value = '';
