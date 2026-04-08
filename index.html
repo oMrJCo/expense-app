@@ -45,7 +45,8 @@
       display: grid;
       gap: 8px;
     }
-    .top-actions, .record-actions, .modal-actions, .inline-row { grid-template-columns: 1fr 1fr; }
+    .top-actions { grid-template-columns: 1fr 1fr 1fr; }
+    .record-actions, .modal-actions, .inline-row { grid-template-columns: 1fr 1fr; }
     .stats-grid, .summary-grid { grid-template-columns: 1fr; }
     .two-col { grid-template-columns: 1fr 1fr; }
     .card {
@@ -70,9 +71,7 @@
       font-weight: 700;
       margin-bottom: 8px;
     }
-    input, select, button {
-      font: inherit;
-    }
+    input, select, button { font: inherit; }
     input, select {
       width: 100%;
       height: 44px;
@@ -219,7 +218,7 @@
     .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
     @media (min-width: 768px) {
       .wrap { padding: 20px; }
-      .top-actions { grid-template-columns: repeat(2, max-content); justify-content: end; }
+      .top-actions { grid-template-columns: repeat(3, max-content); justify-content: end; }
       .stats-grid, .summary-grid { grid-template-columns: repeat(3, 1fr); }
       .topbar {
         display: flex;
@@ -236,9 +235,10 @@
       <div class="topbar">
         <div>
           <h1>เว็บบันทึกรายจ่ายสำรองจ่าย</h1>
-          <div class="sub">เวอร์ชันไฟล์เดียว ใช้กับ GitHub Pages ได้เลย</div>
+          <div class="sub">เวอร์ชัน sync ข้ามหลายเครื่องด้วย Google Sheets + Apps Script</div>
         </div>
         <div class="top-actions">
+          <button id="syncBtn">Sync ข้อมูล</button>
           <button id="deleteSelectedBtn">ลบที่เลือก (0)</button>
           <button class="btn-primary" id="exportBtn">Export CSV</button>
         </div>
@@ -267,6 +267,7 @@
         </div>
       </div>
       <div class="hint">วันที่บันทึกอัตโนมัติ: <strong id="todayText"></strong></div>
+      <div class="hint" id="syncStatusBox">สถานะ: พร้อมใช้งาน</div>
       <button class="btn-primary btn-full" id="addBtn">บันทึกรายการ</button>
     </div>
 
@@ -347,6 +348,7 @@
   </div>
 
   <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzaYifkFruPWCV-B8k5g_Hz_ivBjgfwrZnkfbKZuDMP4sAqXyrQa2q3J-QfCKiWR_-0/exec';
     const STORAGE_KEY = 'advance-expense-records-v4';
     const CATEGORY_STORAGE_KEY = 'advance-expense-categories-v1';
     const DEFAULT_PAY_TO_OPTIONS = ['ส่วนตัว', 'ออฟฟิศ'];
@@ -358,6 +360,7 @@
       showFilters: false,
       showSummaries: false,
       editingRecordId: null,
+      lastSyncText: '',
     };
 
     const el = {
@@ -370,6 +373,8 @@
       todayText: document.getElementById('todayText'),
       deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
       exportBtn: document.getElementById('exportBtn'),
+      syncBtn: document.getElementById('syncBtn'),
+      syncStatusBox: document.getElementById('syncStatusBox'),
       filterMode: document.getElementById('filterMode'),
       payToFilter: document.getElementById('payToFilter'),
       keywordInput: document.getElementById('keywordInput'),
@@ -503,12 +508,12 @@
       return Array.from(map.values()).sort((a, b) => String(b.key).localeCompare(String(a.key)));
     }
 
-    function save() {
+    function saveLocal() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
       localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(state.payToOptions));
     }
 
-    function load() {
+    function loadLocal() {
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         state.records = Array.isArray(saved) ? saved : [];
@@ -520,15 +525,97 @@
       } catch {}
     }
 
+    async function apiGetList() {
+      const res = await fetch(API_URL + '?action=list', { method: 'GET' });
+      return await res.json();
+    }
+
+    async function apiPost(payload) {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      });
+      return await res.json();
+    }
+
+    function renderSyncStatus(message) {
+      el.syncStatusBox.textContent = 'สถานะ: ' + message;
+    }
+
+    async function syncFromServer(showMessage = true) {
+      renderSyncStatus('กำลังดึงข้อมูลจากเซิร์ฟเวอร์...');
+      try {
+        const data = await apiGetList();
+        if (!data || !data.ok) throw new Error((data && data.message) || 'Sync failed');
+        state.records = Array.isArray(data.records) ? data.records : [];
+        state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : [...DEFAULT_PAY_TO_OPTIONS];
+        saveLocal();
+        state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
+        render();
+        if (showMessage) renderSyncStatus('ซิงก์ข้อมูลสำเร็จ • ' + state.lastSyncText);
+      } catch (err) {
+        renderSyncStatus('ดึงข้อมูลไม่สำเร็จ • ใช้ข้อมูลในเครื่องแทน');
+      }
+    }
+
+    async function upsertServerRecord(record) {
+      renderSyncStatus('กำลังบันทึกข้อมูล...');
+      const data = await apiPost({ action: 'upsert_record', record });
+      if (!data || !data.ok) throw new Error((data && data.message) || 'Save failed');
+      state.records = Array.isArray(data.records) ? data.records : state.records;
+      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
+      saveLocal();
+      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
+      render();
+      renderSyncStatus('บันทึกสำเร็จ • ' + state.lastSyncText);
+    }
+
+    async function deleteServerRecord(id) {
+      renderSyncStatus('กำลังลบข้อมูล...');
+      const data = await apiPost({ action: 'delete_record', id });
+      if (!data || !data.ok) throw new Error((data && data.message) || 'Delete failed');
+      state.records = Array.isArray(data.records) ? data.records : state.records;
+      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
+      saveLocal();
+      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
+      render();
+      renderSyncStatus('ลบสำเร็จ • ' + state.lastSyncText);
+    }
+
+    async function deleteManyServer(ids) {
+      renderSyncStatus('กำลังลบหลายรายการ...');
+      const data = await apiPost({ action: 'delete_many', ids });
+      if (!data || !data.ok) throw new Error((data && data.message) || 'Delete many failed');
+      state.records = Array.isArray(data.records) ? data.records : state.records;
+      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
+      saveLocal();
+      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
+      render();
+      renderSyncStatus('ลบข้อมูลสำเร็จ • ' + state.lastSyncText);
+    }
+
+    async function setServerPayToOptions(options) {
+      renderSyncStatus('กำลังอัปเดตตัวเลือก...');
+      const data = await apiPost({ action: 'set_payto_options', payToOptions: options });
+      if (!data || !data.ok) throw new Error((data && data.message) || 'Update options failed');
+      state.records = Array.isArray(data.records) ? data.records : state.records;
+      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : options;
+      saveLocal();
+      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
+      render();
+      renderSyncStatus('อัปเดตตัวเลือกสำเร็จ • ' + state.lastSyncText);
+    }
+
     function getFilteredRecords() {
       const mode = el.filterMode.value;
       const keyword = el.keywordInput.value.trim().toLowerCase();
       const payToFilter = el.payToFilter.value;
       return [...state.records]
         .filter((r) => isInRange(r.date, mode, el.customStart.value, el.customEnd.value))
-        .filter((r) => r.item.toLowerCase().includes(keyword))
+        .filter((r) => String(r.item || '').toLowerCase().includes(keyword))
         .filter((r) => payToFilter === 'all' ? true : r.payTo === payToFilter)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     }
 
     function renderSelectOptions() {
@@ -583,6 +670,15 @@
       `).join('');
     }
 
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function renderRecords(filteredRecords) {
       if (!filteredRecords.length) {
         el.recordsSection.innerHTML = `<div class="empty">ยังไม่มีรายการในช่วงเวลานี้</div>`;
@@ -632,27 +728,20 @@
       });
 
       document.querySelectorAll('.delete-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
           const id = btn.dataset.id;
-          state.records = state.records.filter((r) => r.id !== id);
           state.selectedIds = state.selectedIds.filter((x) => x !== id);
-          save();
-          render();
+          try {
+            await deleteServerRecord(id);
+          } catch (err) {
+            renderSyncStatus('ลบไม่สำเร็จ');
+          }
         });
       });
 
       document.querySelectorAll('.edit-btn').forEach((btn) => {
         btn.addEventListener('click', () => openEdit(btn.dataset.id));
       });
-    }
-
-    function escapeHtml(text) {
-      return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
     }
 
     function openEdit(id) {
@@ -688,12 +777,12 @@
       el.exportBtn.disabled = filtered.length === 0;
     }
 
-    el.addBtn.addEventListener('click', () => {
+    el.addBtn.addEventListener('click', async () => {
       const item = el.itemInput.value.trim();
       const amount = Number(el.amountInput.value);
       const payTo = el.payToInput.value;
       if (!item || !amount || amount <= 0 || !payTo) return;
-      state.records.unshift({
+      const record = {
         id: crypto.randomUUID(),
         item,
         amount,
@@ -701,32 +790,42 @@
         date: getTodayLocal(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
-      el.itemInput.value = '';
-      el.amountInput.value = '';
-      save();
-      render();
+      };
+      try {
+        await upsertServerRecord(record);
+        el.itemInput.value = '';
+        el.amountInput.value = '';
+      } catch (err) {
+        renderSyncStatus('บันทึกไม่สำเร็จ');
+      }
     });
 
-    el.addPayToBtn.addEventListener('click', () => {
+    el.addPayToBtn.addEventListener('click', async () => {
       const value = el.newPayToInput.value.trim();
       if (!value) return;
-      if (!state.payToOptions.includes(value)) state.payToOptions.push(value);
-      el.newPayToInput.value = '';
-      save();
-      renderSelectOptions();
-      el.payToInput.value = value;
-      render();
+      const next = state.payToOptions.includes(value) ? state.payToOptions : [...state.payToOptions, value];
+      try {
+        await setServerPayToOptions(next);
+        el.newPayToInput.value = '';
+        renderSelectOptions();
+        el.payToInput.value = value;
+        render();
+      } catch (err) {
+        renderSyncStatus('อัปเดตตัวเลือกไม่สำเร็จ');
+      }
     });
 
     el.exportBtn.addEventListener('click', () => exportCSV(getFilteredRecords()));
+    el.syncBtn.addEventListener('click', () => syncFromServer(true));
 
-    el.deleteSelectedBtn.addEventListener('click', () => {
+    el.deleteSelectedBtn.addEventListener('click', async () => {
       if (!state.selectedIds.length) return;
-      state.records = state.records.filter((r) => !state.selectedIds.includes(r.id));
-      state.selectedIds = [];
-      save();
-      render();
+      try {
+        await deleteManyServer(state.selectedIds);
+        state.selectedIds = [];
+      } catch (err) {
+        renderSyncStatus('ลบหลายรายการไม่สำเร็จ');
+      }
     });
 
     el.toggleFiltersBtn.addEventListener('click', () => { state.showFilters = !state.showFilters; render(); });
@@ -748,7 +847,7 @@
     });
 
     el.cancelEditBtn.addEventListener('click', closeEdit);
-    el.saveEditBtn.addEventListener('click', () => {
+    el.saveEditBtn.addEventListener('click', async () => {
       const id = state.editingRecordId;
       const record = state.records.find((r) => r.id === id);
       if (!record) return;
@@ -756,21 +855,28 @@
       const amount = Number(el.editAmountInput.value);
       const payTo = el.editPayToInput.value;
       if (!item || !amount || amount <= 0 || !payTo) return;
-      record.item = item;
-      record.amount = amount;
-      record.payTo = payTo;
-      record.updatedAt = new Date().toISOString();
-      save();
-      closeEdit();
-      render();
+      const nextRecord = {
+        ...record,
+        item,
+        amount,
+        payTo,
+        updatedAt: new Date().toISOString(),
+      };
+      try {
+        await upsertServerRecord(nextRecord);
+        closeEdit();
+      } catch (err) {
+        renderSyncStatus('บันทึกการแก้ไขไม่สำเร็จ');
+      }
     });
 
     el.editModal.addEventListener('click', (e) => {
       if (e.target === el.editModal) closeEdit();
     });
 
-    load();
+    loadLocal();
     render();
+    syncFromServer(false);
   </script>
 </body>
 </html>
