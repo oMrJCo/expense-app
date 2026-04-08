@@ -14,6 +14,7 @@
       --soft: #eef2f7;
       --primary: #0f172a;
       --primaryText: #ffffff;
+      --danger: #b91c1c;
     }
     * { box-sizing: border-box; }
     body {
@@ -23,7 +24,7 @@
       color: var(--text);
     }
     .wrap {
-      max-width: 900px;
+      max-width: 920px;
       margin: 0 auto;
       padding: 12px 12px 28px;
     }
@@ -45,7 +46,7 @@
       display: grid;
       gap: 8px;
     }
-    .top-actions { grid-template-columns: 1fr 1fr 1fr; }
+    .top-actions { grid-template-columns: 1fr 1fr; }
     .record-actions, .modal-actions, .inline-row { grid-template-columns: 1fr 1fr; }
     .stats-grid, .summary-grid { grid-template-columns: 1fr; }
     .two-col { grid-template-columns: 1fr 1fr; }
@@ -71,7 +72,9 @@
       font-weight: 700;
       margin-bottom: 8px;
     }
-    input, select, button { font: inherit; }
+    input, select, button {
+      font: inherit;
+    }
     input, select {
       width: 100%;
       height: 44px;
@@ -92,10 +95,19 @@
       font-weight: 700;
       cursor: pointer;
     }
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
     .btn-primary {
       background: var(--primary);
       color: var(--primaryText);
       border-color: var(--primary);
+    }
+    .btn-danger {
+      color: var(--danger);
+      border-color: #fecaca;
+      background: #fff5f5;
     }
     .btn-full { width: 100%; height: 46px; }
     .btn-link {
@@ -218,7 +230,7 @@
     .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
     @media (min-width: 768px) {
       .wrap { padding: 20px; }
-      .top-actions { grid-template-columns: repeat(3, max-content); justify-content: end; }
+      .top-actions { grid-template-columns: repeat(2, max-content); justify-content: end; }
       .stats-grid, .summary-grid { grid-template-columns: repeat(3, 1fr); }
       .topbar {
         display: flex;
@@ -235,11 +247,10 @@
       <div class="topbar">
         <div>
           <h1>เว็บบันทึกรายจ่ายสำรองจ่าย</h1>
-          <div class="sub">เวอร์ชัน sync ข้ามหลายเครื่องด้วย Google Sheets + Apps Script</div>
+          <div class="sub">เวอร์ชัน Firebase ใช้หลายเครื่องได้ ข้อมูล sync อัตโนมัติ</div>
         </div>
         <div class="top-actions">
-          <button id="syncBtn">Sync ข้อมูล</button>
-          <button id="deleteSelectedBtn">ลบที่เลือก (0)</button>
+          <button class="btn-danger" id="deleteSelectedBtn">ลบที่เลือก (0)</button>
           <button class="btn-primary" id="exportBtn">Export CSV</button>
         </div>
       </div>
@@ -267,7 +278,7 @@
         </div>
       </div>
       <div class="hint">วันที่บันทึกอัตโนมัติ: <strong id="todayText"></strong></div>
-      <div class="hint" id="syncStatusBox">สถานะ: พร้อมใช้งาน</div>
+      <div class="hint" id="syncStatusBox">สถานะ: กำลังเชื่อมต่อ Firebase...</div>
       <button class="btn-primary btn-full" id="addBtn">บันทึกรายการ</button>
     </div>
 
@@ -347,11 +358,39 @@
     </div>
   </div>
 
-  <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzaYifkFruPWCV-B8k5g_Hz_ivBjgfwrZnkfbKZuDMP4sAqXyrQa2q3J-QfCKiWR_-0/exec';
-    const STORAGE_KEY = 'advance-expense-records-v5';
-    const CATEGORY_STORAGE_KEY = 'advance-expense-categories-v2';
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      getDoc,
+      updateDoc,
+      deleteDoc,
+      onSnapshot,
+      query,
+      orderBy,
+      serverTimestamp,
+      writeBatch
+    } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+
+    // =============================
+    // ใส่ค่า Firebase config ของพี่ตรงนี้
+    // ดูจาก Firebase Console > Project settings > Your apps > SDK setup and configuration
+    // =============================
+    const firebaseConfig = {
+      apiKey: 'PUT_YOUR_API_KEY_HERE',
+      authDomain: 'PUT_YOUR_AUTH_DOMAIN_HERE',
+      projectId: 'PUT_YOUR_PROJECT_ID_HERE',
+      storageBucket: 'PUT_YOUR_STORAGE_BUCKET_HERE',
+      messagingSenderId: 'PUT_YOUR_MESSAGING_SENDER_ID_HERE',
+      appId: 'PUT_YOUR_APP_ID_HERE'
+    };
+
     const DEFAULT_PAY_TO_OPTIONS = ['ส่วนตัว', 'ออฟฟิศ'];
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
     const state = {
       records: [],
@@ -360,7 +399,7 @@
       showFilters: false,
       showSummaries: false,
       editingRecordId: null,
-      lastSyncText: '',
+      connected: false,
     };
 
     const el = {
@@ -373,7 +412,6 @@
       todayText: document.getElementById('todayText'),
       deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
       exportBtn: document.getElementById('exportBtn'),
-      syncBtn: document.getElementById('syncBtn'),
       syncStatusBox: document.getElementById('syncStatusBox'),
       filterMode: document.getElementById('filterMode'),
       payToFilter: document.getElementById('payToFilter'),
@@ -398,36 +436,25 @@
     };
 
     function normalizeDateOnly(value) {
-  if (!value) return '';
-  if (value instanceof Date && !isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
-  }
+      if (!value) return '';
+      if (value instanceof Date && !isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+      const text = String(value).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+      const parsed = new Date(text);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+      return text;
+    }
 
-  const text = String(value).trim();
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-
-  const parsed = new Date(text);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().slice(0, 10);
-  }
-
-  return text;
-}
-
-function formatDate(dateStr) {
-  const normalized = normalizeDateOnly(dateStr);
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) return String(dateStr || '-');
-  return new Intl.DateTimeFormat('th-TH', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date);
-}
+    function formatDate(dateStr) {
+      const normalized = normalizeDateOnly(dateStr);
+      const date = new Date(normalized);
+      if (Number.isNaN(date.getTime())) return String(dateStr || '-');
+      return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    }
 
     function formatMonthLabel(dateStr) {
-      const date = new Date(dateStr);
+      const normalized = normalizeDateOnly(dateStr);
+      const date = new Date(normalized);
       if (Number.isNaN(date.getTime())) return '-';
       return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: 'long' }).format(date);
     }
@@ -471,47 +498,40 @@ function formatDate(dateStr) {
     }
 
     function getWeekLabel(dateStr) {
-  const normalized = normalizeDateOnly(dateStr);
-  const date = new Date(normalized + 'T00:00:00');
-  const start = getStartOfWeek(date);
-  const end = getEndOfWeek(date);
-  const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(start);
-  const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(end);
-  return `${startLabel} - ${endLabel}`;
-}
+      const normalized = normalizeDateOnly(dateStr);
+      const date = new Date(normalized + 'T00:00:00');
+      const start = getStartOfWeek(date);
+      const end = getEndOfWeek(date);
+      const startLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit' }).format(start);
+      const endLabel = new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(end);
+      return `${startLabel} - ${endLabel}`;
+    }
 
     function isInRange(itemDate, mode, customStart, customEnd) {
-  const normalizedItemDate = normalizeDateOnly(itemDate);
-  const target = new Date(normalizedItemDate + 'T00:00:00');
-  const today = new Date();
+      const normalizedItemDate = normalizeDateOnly(itemDate);
+      const target = new Date(normalizedItemDate + 'T00:00:00');
+      const today = new Date();
 
-  if (mode === 'daily') {
-    return normalizedItemDate === getTodayLocal();
-  }
-
-  if (mode === 'weekly') {
-    return target >= getStartOfWeek(today) && target <= getEndOfWeek(today);
-  }
-
-  if (mode === 'monthly') {
-    return target >= getStartOfMonth(today) && target <= getEndOfMonth(today);
-  }
-
-  if (mode === 'custom') {
-    if (!customStart && !customEnd) return true;
-    const start = customStart ? new Date(customStart + 'T00:00:00') : null;
-    const end = customEnd ? new Date(customEnd + 'T23:59:59') : null;
-    if (start && target < start) return false;
-    if (end && target > end) return false;
-    return true;
-  }
+      if (mode === 'daily') return normalizedItemDate === getTodayLocal();
+      if (mode === 'weekly') return target >= getStartOfWeek(today) && target <= getEndOfWeek(today);
+      if (mode === 'monthly') return target >= getStartOfMonth(today) && target <= getEndOfMonth(today);
+      if (mode === 'custom') {
+        if (!customStart && !customEnd) return true;
+        const start = customStart ? new Date(customStart + 'T00:00:00') : null;
+        const end = customEnd ? new Date(customEnd + 'T23:59:59') : null;
+        if (start && target < start) return false;
+        if (end && target > end) return false;
+        return true;
+      }
+      return true;
+    }
 
     function exportCSV(rows) {
       const headers = ['วันที่บันทึก', 'รายการ', 'จ่ายให้ใคร', 'จำนวนเงิน'];
       const csvRows = [
         headers.join(','),
         ...rows.map((row) => [
-          `"${row.date}"`,
+          `"${normalizeDateOnly(row.date)}"`,
           `"${String(row.item).replace(/"/g, '""')}"`,
           `"${String(row.payTo || '-').replace(/"/g, '""')}"`,
           `"${Number(row.amount).toFixed(2)}"`,
@@ -529,10 +549,16 @@ function formatDate(dateStr) {
     function buildSummary(records, type) {
       const map = new Map();
       records.forEach((record) => {
-        let key = record.date;
+        let key = normalizeDateOnly(record.date);
         let label = formatDate(record.date);
-        if (type === 'weekly') { key = getWeekLabel(record.date); label = key; }
-        if (type === 'monthly') { key = record.date.slice(0, 7); label = formatMonthLabel(record.date); }
+        if (type === 'weekly') {
+          key = getWeekLabel(record.date);
+          label = key;
+        }
+        if (type === 'monthly') {
+          key = normalizeDateOnly(record.date).slice(0, 7);
+          label = formatMonthLabel(record.date);
+        }
         if (!map.has(key)) map.set(key, { key, label, total: 0, count: 0 });
         const current = map.get(key);
         current.total += Number(record.amount || 0);
@@ -541,139 +567,8 @@ function formatDate(dateStr) {
       return Array.from(map.values()).sort((a, b) => String(b.key).localeCompare(String(a.key)));
     }
 
-    function saveLocal() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
-      localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(state.payToOptions));
-    }
-
-    function loadLocal() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        state.records = Array.isArray(saved) ? saved : [];
-      } catch { state.records = []; }
-
-      try {
-        const savedOptions = JSON.parse(localStorage.getItem(CATEGORY_STORAGE_KEY) || 'null');
-        if (Array.isArray(savedOptions) && savedOptions.length) state.payToOptions = savedOptions;
-      } catch {}
-    }
-
     function renderSyncStatus(message) {
       el.syncStatusBox.textContent = 'สถานะ: ' + message;
-    }
-
-    function jsonpRequest(params) {
-      return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-        const query = new URLSearchParams({ ...params, callback: callbackName });
-        const script = document.createElement('script');
-        const timeout = setTimeout(() => {
-          cleanup();
-          reject(new Error('Timeout'));
-        }, 15000);
-
-        function cleanup() {
-          clearTimeout(timeout);
-          if (script.parentNode) script.parentNode.removeChild(script);
-          try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
-        }
-
-        window[callbackName] = function(data) {
-          cleanup();
-          resolve(data);
-        };
-
-        script.onerror = function() {
-          cleanup();
-          reject(new Error('JSONP load error'));
-        };
-
-        script.src = API_URL + '?' + query.toString();
-        document.body.appendChild(script);
-      });
-    }
-
-    async function syncFromServer(showMessage = true) {
-      renderSyncStatus('กำลังดึงข้อมูลจากเซิร์ฟเวอร์...');
-      try {
-        const data = await jsonpRequest({ action: 'list' });
-        if (!data || !data.ok) throw new Error((data && data.message) || 'Sync failed');
-        state.records = Array.isArray(data.records) ? data.records : [];
-        state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : [...DEFAULT_PAY_TO_OPTIONS];
-        saveLocal();
-        state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-        render();
-        if (showMessage) renderSyncStatus('ซิงก์ข้อมูลสำเร็จ • ' + state.lastSyncText);
-      } catch (err) {
-        renderSyncStatus('ดึงข้อมูลไม่สำเร็จ • ใช้ข้อมูลในเครื่องแทน');
-      }
-    }
-
-    async function upsertServerRecord(record) {
-      renderSyncStatus('กำลังบันทึกข้อมูล...');
-      const data = await jsonpRequest({
-        action: 'upsert_record',
-        id: record.id,
-        item: record.item,
-        amount: String(record.amount),
-        payTo: record.payTo,
-        date: record.date,
-        updatedAt: record.updatedAt,
-      });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Save failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('บันทึกสำเร็จ • ' + state.lastSyncText);
-    }
-
-    async function deleteServerRecord(id) {
-      renderSyncStatus('กำลังลบข้อมูล...');
-      const data = await jsonpRequest({ action: 'delete_record', id });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Delete failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('ลบสำเร็จ • ' + state.lastSyncText);
-    }
-
-    async function deleteManyServer(ids) {
-      renderSyncStatus('กำลังลบหลายรายการ...');
-      const data = await jsonpRequest({ action: 'delete_many', ids: ids.join(',') });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Delete many failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : state.payToOptions;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('ลบข้อมูลสำเร็จ • ' + state.lastSyncText);
-    }
-
-    async function setServerPayToOptions(options) {
-      renderSyncStatus('กำลังอัปเดตตัวเลือก...');
-      const data = await jsonpRequest({ action: 'set_payto_options', payToOptions: options.join(',') });
-      if (!data || !data.ok) throw new Error((data && data.message) || 'Update options failed');
-      state.records = Array.isArray(data.records) ? data.records : state.records;
-      state.payToOptions = Array.isArray(data.payToOptions) && data.payToOptions.length ? data.payToOptions : options;
-      saveLocal();
-      state.lastSyncText = 'ซิงก์ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      render();
-      renderSyncStatus('อัปเดตตัวเลือกสำเร็จ • ' + state.lastSyncText);
-    }
-
-    function getFilteredRecords() {
-      const mode = el.filterMode.value;
-      const keyword = el.keywordInput.value.trim().toLowerCase();
-      const payToFilter = el.payToFilter.value;
-      return [...state.records]
-        .filter((r) => isInRange(r.date, mode, el.customStart.value, el.customEnd.value))
-        .filter((r) => String(r.item || '').toLowerCase().includes(keyword))
-        .filter((r) => payToFilter === 'all' ? true : r.payTo === payToFilter)
-        .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     }
 
     function renderSelectOptions() {
@@ -688,6 +583,17 @@ function formatDate(dateStr) {
       const currentEdit = el.editPayToInput.value || state.payToOptions[0] || '';
       el.editPayToInput.innerHTML = state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
       el.editPayToInput.value = state.payToOptions.includes(currentEdit) ? currentEdit : state.payToOptions[0] || '';
+    }
+
+    function getFilteredRecords() {
+      const mode = el.filterMode.value;
+      const keyword = el.keywordInput.value.trim().toLowerCase();
+      const payToFilter = el.payToFilter.value;
+      return [...state.records]
+        .filter((r) => isInRange(r.date, mode, el.customStart.value, el.customEnd.value))
+        .filter((r) => String(r.item || '').toLowerCase().includes(keyword))
+        .filter((r) => payToFilter === 'all' ? true : r.payTo === payToFilter)
+        .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
     }
 
     function renderStats(filteredRecords) {
@@ -790,8 +696,8 @@ function formatDate(dateStr) {
           const id = btn.dataset.id;
           state.selectedIds = state.selectedIds.filter((x) => x !== id);
           try {
-            await deleteServerRecord(id);
-          } catch (err) {
+            await deleteDoc(doc(db, 'expenses', id));
+          } catch (_) {
             renderSyncStatus('ลบไม่สำเร็จ');
           }
         });
@@ -835,25 +741,50 @@ function formatDate(dateStr) {
       el.exportBtn.disabled = filtered.length === 0;
     }
 
+    async function ensureDefaultSettings() {
+      const settingsRef = doc(db, 'settings', 'payToOptions');
+      const snap = await getDoc(settingsRef);
+      if (!snap.exists()) {
+        await setDoc(settingsRef, {
+          options: DEFAULT_PAY_TO_OPTIONS,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+
+    async function saveRecord(record) {
+      await setDoc(doc(db, 'expenses', record.id), {
+        ...record,
+        date: normalizeDateOnly(record.date),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    }
+
+    async function savePayToOptions(options) {
+      await setDoc(doc(db, 'settings', 'payToOptions'), {
+        options,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
+
     el.addBtn.addEventListener('click', async () => {
       const item = el.itemInput.value.trim();
       const amount = Number(el.amountInput.value);
       const payTo = el.payToInput.value;
       if (!item || !amount || amount <= 0 || !payTo) return;
-      const record = {
-        id: crypto.randomUUID(),
-        item,
-        amount,
-        payTo,
-        date: getTodayLocal(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
       try {
-        await upsertServerRecord(record);
+        renderSyncStatus('กำลังบันทึกข้อมูล...');
+        await saveRecord({
+          id: crypto.randomUUID(),
+          item,
+          amount,
+          payTo,
+          date: getTodayLocal(),
+        });
         el.itemInput.value = '';
         el.amountInput.value = '';
-      } catch (err) {
+        renderSyncStatus('บันทึกสำเร็จ • ข้อมูล sync อัตโนมัติ');
+      } catch (_) {
         renderSyncStatus('บันทึกไม่สำเร็จ');
       }
     });
@@ -863,31 +794,41 @@ function formatDate(dateStr) {
       if (!value) return;
       const next = state.payToOptions.includes(value) ? state.payToOptions : [...state.payToOptions, value];
       try {
-        await setServerPayToOptions(next);
+        renderSyncStatus('กำลังอัปเดตตัวเลือก...');
+        await savePayToOptions(next);
         el.newPayToInput.value = '';
-        renderSelectOptions();
-        el.payToInput.value = value;
-        render();
-      } catch (err) {
+        renderSyncStatus('อัปเดตตัวเลือกสำเร็จ');
+      } catch (_) {
         renderSyncStatus('อัปเดตตัวเลือกไม่สำเร็จ');
       }
     });
 
     el.exportBtn.addEventListener('click', () => exportCSV(getFilteredRecords()));
-    el.syncBtn.addEventListener('click', () => syncFromServer(true));
 
     el.deleteSelectedBtn.addEventListener('click', async () => {
       if (!state.selectedIds.length) return;
       try {
-        await deleteManyServer(state.selectedIds);
+        renderSyncStatus('กำลังลบหลายรายการ...');
+        const batch = writeBatch(db);
+        state.selectedIds.forEach((id) => batch.delete(doc(db, 'expenses', id)));
+        await batch.commit();
         state.selectedIds = [];
-      } catch (err) {
+        renderSyncStatus('ลบข้อมูลสำเร็จ');
+      } catch (_) {
         renderSyncStatus('ลบหลายรายการไม่สำเร็จ');
       }
     });
 
-    el.toggleFiltersBtn.addEventListener('click', () => { state.showFilters = !state.showFilters; render(); });
-    el.toggleSummariesBtn.addEventListener('click', () => { state.showSummaries = !state.showSummaries; render(); });
+    el.toggleFiltersBtn.addEventListener('click', () => {
+      state.showFilters = !state.showFilters;
+      render();
+    });
+
+    el.toggleSummariesBtn.addEventListener('click', () => {
+      state.showSummaries = !state.showSummaries;
+      render();
+    });
+
     el.filterMode.addEventListener('change', render);
     el.payToFilter.addEventListener('change', render);
     el.keywordInput.addEventListener('input', render);
@@ -905,6 +846,7 @@ function formatDate(dateStr) {
     });
 
     el.cancelEditBtn.addEventListener('click', closeEdit);
+
     el.saveEditBtn.addEventListener('click', async () => {
       const id = state.editingRecordId;
       const record = state.records.find((r) => r.id === id);
@@ -913,17 +855,12 @@ function formatDate(dateStr) {
       const amount = Number(el.editAmountInput.value);
       const payTo = el.editPayToInput.value;
       if (!item || !amount || amount <= 0 || !payTo) return;
-      const nextRecord = {
-        ...record,
-        item,
-        amount,
-        payTo,
-        updatedAt: new Date().toISOString(),
-      };
       try {
-        await upsertServerRecord(nextRecord);
+        renderSyncStatus('กำลังบันทึกการแก้ไข...');
+        await saveRecord({ ...record, item, amount, payTo });
         closeEdit();
-      } catch (err) {
+        renderSyncStatus('บันทึกการแก้ไขสำเร็จ');
+      } catch (_) {
         renderSyncStatus('บันทึกการแก้ไขไม่สำเร็จ');
       }
     });
@@ -932,9 +869,40 @@ function formatDate(dateStr) {
       if (e.target === el.editModal) closeEdit();
     });
 
-    loadLocal();
+    async function startApp() {
+      try {
+        await ensureDefaultSettings();
+
+        onSnapshot(query(collection(db, 'expenses'), orderBy('updatedAt', 'desc')), (snapshot) => {
+          state.records = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+            date: normalizeDateOnly(docSnap.data().date),
+          }));
+          state.connected = true;
+          render();
+          renderSyncStatus('เชื่อมต่อสำเร็จ • ข้อมูล sync อัตโนมัติ');
+        }, () => {
+          renderSyncStatus('อ่านข้อมูลไม่สำเร็จ');
+        });
+
+        onSnapshot(doc(db, 'settings', 'payToOptions'), (docSnap) => {
+          const data = docSnap.exists() ? docSnap.data() : null;
+          const options = Array.isArray(data && data.options) && data.options.length ? data.options : DEFAULT_PAY_TO_OPTIONS;
+          state.payToOptions = options;
+          render();
+        }, () => {
+          state.payToOptions = DEFAULT_PAY_TO_OPTIONS;
+          render();
+        });
+      } catch (err) {
+        renderSyncStatus('เชื่อมต่อ Firebase ไม่สำเร็จ • ตรวจ config และ Firestore rules');
+        console.error(err);
+      }
+    }
+
     render();
-    syncFromServer(false);
+    startApp();
   </script>
 </body>
 </html>
