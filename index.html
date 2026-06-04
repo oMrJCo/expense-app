@@ -447,7 +447,6 @@
       newPayToInput: document.getElementById('newPayToInput'),
       addPayToBtn: document.getElementById('addPayToBtn'),
       addBtn: document.getElementById('addBtn'),
-      todayText: document.getElementById('todayText'),
       deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
       exportBtn: document.getElementById('exportBtn'),
       syncStatusBox: document.getElementById('syncStatusBox'),
@@ -765,7 +764,6 @@
 
     function render() {
       renderSelectOptions();
-      el.todayText.textContent = formatDate(getTodayLocal());
       el.filtersSection.style.display = state.showFilters ? 'block' : 'none';
       el.summariesSection.style.display = state.showSummaries ? 'grid' : 'none';
       el.toggleFiltersBtn.textContent = state.showFilters ? 'ซ่อน' : 'แสดง';
