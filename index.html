@@ -263,6 +263,34 @@
       height: 28px;
       margin-top: 4px;
     }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-top: 6px;
+      background: #e2e8f0;
+    }
+    .status-pending_claim { background: #fef3c7; color: #92400e; }
+    .status-waiting_payment { background: #ffedd5; color: #9a3412; }
+    .status-reimbursed { background: #dcfce7; color: #166534; }
+    .claim-period {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .claim-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .claim-title { font-weight: 900; font-size: 16px; }
+    .claim-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .claim-amount { font-size: 20px; font-weight: 900; margin-top: 8px; }
     @media (min-width: 768px) {
       .wrap { padding: 20px; }
       .top-actions { grid-template-columns: repeat(2, max-content); justify-content: end; }
@@ -324,6 +352,24 @@
 
     <div class="card">
       <div class="card-header">
+        <div class="card-title">ตัดรอบเบิก</div>
+      </div>
+      <div class="claim-period">
+        <div class="field">
+          <label class="label">วันที่เริ่มรอบ</label>
+          <input id="claimStartInput" type="date" />
+        </div>
+        <div class="field">
+          <label class="label">วันที่สิ้นสุดรอบ</label>
+          <input id="claimEndInput" type="date" />
+        </div>
+      </div>
+      <div class="hint" id="claimPreviewBox">เลือกช่วงวันที่เพื่อสร้างรอบเบิก</div>
+      <button class="btn-primary btn-full" id="createClaimBtn">ปิดรอบเบิก</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
         <div class="card-title">ตัวกรองข้อมูล</div>
         <button class="btn-link" id="toggleFiltersBtn">แสดง</button>
       </div>
@@ -365,6 +411,12 @@
         <button class="btn-link" id="toggleSummariesBtn">แสดง</button>
       </div>
       <div class="summary-grid" id="summariesSection" style="display:none;"></div>
+    </div>
+
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">รอบเบิก</div>
+      <div id="claimCyclesSection"></div>
     </div>
 
     <div class="card">
@@ -432,6 +484,7 @@
 
     const state = {
       records: [],
+      claimBatches: [],
       payToOptions: [...DEFAULT_PAY_TO_OPTIONS],
       selectedIds: [],
       showFilters: false,
@@ -471,6 +524,11 @@
       cancelEditBtn: document.getElementById('cancelEditBtn'),
       saveEditBtn: document.getElementById('saveEditBtn'),
       dateInput: document.getElementById('dateInput'),
+      claimStartInput: document.getElementById('claimStartInput'),
+      claimEndInput: document.getElementById('claimEndInput'),
+      createClaimBtn: document.getElementById('createClaimBtn'),
+      claimPreviewBox: document.getElementById('claimPreviewBox'),
+      claimCyclesSection: document.getElementById('claimCyclesSection'),
     };
 
     function normalizeDateOnly(value) {
@@ -623,6 +681,49 @@
       el.editPayToInput.value = state.payToOptions.includes(currentEdit) ? currentEdit : state.payToOptions[0] || '';
     }
 
+
+    function getRecordStatus(record) {
+      return record.status || 'pending_claim';
+    }
+
+    function getStatusText(status) {
+      if (status === 'pending_claim') return 'รอเบิก';
+      if (status === 'waiting_payment') return 'รอรับเงิน';
+      if (status === 'reimbursed') return 'เบิกแล้ว';
+      return 'รอเบิก';
+    }
+
+    function getRecordsInClaimRange() {
+      const start = el.claimStartInput.value;
+      const end = el.claimEndInput.value;
+      if (!start || !end) return [];
+      return state.records.filter((record) => {
+        const d = normalizeDateOnly(record.date);
+        return getRecordStatus(record) === 'pending_claim' && d >= start && d <= end;
+      });
+    }
+
+    function makeClaimName(start, end) {
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mi = String(now.getMinutes()).padStart(2, '0');
+      return `BE-${yy}${mm}${dd}-${hh}${mi}`;
+    }
+
+    function renderClaimPreview() {
+      if (!el.claimStartInput || !el.claimEndInput || !el.claimPreviewBox) return;
+      const rows = getRecordsInClaimRange();
+      const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      if (!el.claimStartInput.value || !el.claimEndInput.value) {
+        el.claimPreviewBox.textContent = 'เลือกช่วงวันที่เพื่อสร้างรอบเบิก';
+        return;
+      }
+      el.claimPreviewBox.textContent = `รายการรอเบิกในช่วงนี้ ${rows.length} รายการ • ยอดรวม ฿${formatMoney(total)}`;
+    }
+
     function getFilteredRecords() {
       const mode = el.filterMode.value;
       const keyword = el.keywordInput.value.trim().toLowerCase();
@@ -635,13 +736,17 @@
     }
 
     function renderStats(filteredRecords) {
-      const totalAmount = filteredRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-      const modeText = el.filterMode.value === 'daily' ? 'รายวัน' : el.filterMode.value === 'weekly' ? 'รายสัปดาห์' : el.filterMode.value === 'monthly' ? 'รายเดือน' : 'กำหนดเอง';
+      const pendingRows = state.records.filter((r) => getRecordStatus(r) === 'pending_claim');
+      const waitingRows = state.records.filter((r) => getRecordStatus(r) === 'waiting_payment');
+      const reimbursedRows = state.records.filter((r) => getRecordStatus(r) === 'reimbursed');
+      const sum = (rows) => rows.reduce((total, r) => total + Number(r.amount || 0), 0);
+
       const stats = [
-        { label: 'จำนวนรายการ', value: filteredRecords.length },
-        { label: 'ยอดรวม', value: `฿${formatMoney(totalAmount)}` },
-        { label: 'ช่วงที่กำลังดู', value: modeText },
+        { label: 'ยอดรอเบิก', value: `฿${formatMoney(sum(pendingRows))}` },
+        { label: 'ยอดรอรับเงิน', value: `฿${formatMoney(sum(waitingRows))}` },
+        { label: 'ยอดเบิกแล้ว', value: `฿${formatMoney(sum(reimbursedRows))}` },
       ];
+
       el.statsGrid.innerHTML = stats.map((s) => `
         <div class="stat">
           <div class="stat-label">${s.label}</div>
@@ -702,8 +807,12 @@
                   <div class="record-date">${formatDate(record.date)}</div>
                   <div class="record-right">
                     <div class="record-amount">฿${formatMoney(record.amount)}</div>
-                    <div class="badge">${escapeHtml(record.payTo || '-')}</div>
+                    <div>
+                      <div class="badge">${escapeHtml(record.payTo || '-')}</div>
+                      <div class="status-badge status-${getRecordStatus(record)}">${getStatusText(getRecordStatus(record))}</div>
+                    </div>
                   </div>
+                  ${record.claimBatchName ? `<div class="record-date">รอบเบิก: ${escapeHtml(record.claimBatchName)}</div>` : ''}
                 </div>
               </div>
             </div>
@@ -773,6 +882,8 @@
       renderStats(filtered);
       renderSummaries(filtered);
       renderRecords(filtered);
+      renderClaimPreview();
+      renderClaimCycles();
       el.deleteSelectedBtn.textContent = `ลบที่เลือก (${state.selectedIds.length})`;
       el.deleteSelectedBtn.disabled = state.selectedIds.length === 0;
       el.exportBtn.disabled = filtered.length === 0;
@@ -792,6 +903,9 @@
     async function saveRecord(record) {
       await setDoc(doc(db, 'expenses', record.id), {
         ...record,
+        status: record.status || 'pending_claim',
+        claimBatchId: record.claimBatchId || null,
+        claimBatchName: record.claimBatchName || null,
         date: normalizeDateOnly(record.date),
         updatedAt: new Date().toISOString(),
       }, { merge: true });
@@ -802,6 +916,124 @@
         options,
         updatedAt: serverTimestamp(),
       }, { merge: true });
+    }
+
+
+    function renderClaimCycles() {
+      if (!el.claimCyclesSection) return;
+      if (!state.claimBatches.length) {
+        el.claimCyclesSection.innerHTML = '<div class="empty">ยังไม่มีรอบเบิก</div>';
+        return;
+      }
+
+      el.claimCyclesSection.innerHTML = state.claimBatches.map((batch) => `
+        <div class="claim-box">
+          <div class="claim-title">${escapeHtml(batch.name || batch.id)}</div>
+          <div class="claim-meta">${formatDate(batch.startDate)} - ${formatDate(batch.endDate)}</div>
+          <div class="claim-amount">฿${formatMoney(batch.totalAmount || 0)}</div>
+          <div class="claim-meta">${batch.count || 0} รายการ • ${batch.status === 'paid' ? 'เบิกแล้ว' : 'รอรับเงิน'}</div>
+          ${batch.status === 'paid'
+            ? `<div class="claim-meta">วันที่รับเงิน: ${formatDate(batch.paidAt || batch.updatedAt)}</div>`
+            : `<button class="btn-primary btn-full mark-paid-btn" data-id="${batch.id}" style="margin-top:10px;">รับเงินแล้ว</button>`
+          }
+        </div>
+      `).join('');
+
+      document.querySelectorAll('.mark-paid-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          await markClaimBatchPaid(btn.dataset.id);
+        });
+      });
+    }
+
+    async function createClaimBatch() {
+      const start = el.claimStartInput.value;
+      const end = el.claimEndInput.value;
+      if (!start || !end) {
+        renderSyncStatus('กรุณาเลือกวันที่เริ่มและวันที่สิ้นสุดรอบ');
+        return;
+      }
+      if (end < start) {
+        renderSyncStatus('วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่ม');
+        return;
+      }
+
+      const rows = getRecordsInClaimRange();
+      if (!rows.length) {
+        renderSyncStatus('ไม่มีรายการรอเบิกในช่วงวันที่นี้');
+        return;
+      }
+
+      const totalAmount = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const batchId = crypto.randomUUID();
+      const batchName = makeClaimName(start, end);
+      const now = new Date().toISOString();
+
+      try {
+        renderSyncStatus('กำลังปิดรอบเบิก...');
+        const batch = writeBatch(db);
+
+        batch.set(doc(db, 'claimBatches', batchId), {
+          id: batchId,
+          name: batchName,
+          startDate: start,
+          endDate: end,
+          count: rows.length,
+          totalAmount,
+          status: 'waiting_payment',
+          createdAt: now,
+          updatedAt: now,
+          paidAt: null,
+        });
+
+        rows.forEach((record) => {
+          batch.update(doc(db, 'expenses', record.id), {
+            status: 'waiting_payment',
+            claimBatchId: batchId,
+            claimBatchName: batchName,
+            updatedAt: now,
+          });
+        });
+
+        await batch.commit();
+        state.selectedIds = [];
+        renderSyncStatus(`ปิดรอบสำเร็จ ${batchName} • ${rows.length} รายการ • ฿${formatMoney(totalAmount)}`);
+      } catch (err) {
+        console.error(err);
+        renderSyncStatus('ปิดรอบไม่สำเร็จ');
+      }
+    }
+
+    async function markClaimBatchPaid(batchId) {
+      const batchInfo = state.claimBatches.find((b) => b.id === batchId);
+      if (!batchInfo) return;
+      const rows = state.records.filter((r) => r.claimBatchId === batchId);
+      const now = new Date().toISOString();
+
+      try {
+        renderSyncStatus('กำลังบันทึกรับเงินคืน...');
+        const batch = writeBatch(db);
+
+        batch.update(doc(db, 'claimBatches', batchId), {
+          status: 'paid',
+          paidAt: now,
+          updatedAt: now,
+        });
+
+        rows.forEach((record) => {
+          batch.update(doc(db, 'expenses', record.id), {
+            status: 'reimbursed',
+            reimbursedAt: now,
+            updatedAt: now,
+          });
+        });
+
+        await batch.commit();
+        renderSyncStatus(`บันทึกรับเงินคืนสำเร็จ • ${batchInfo.name}`);
+      } catch (err) {
+        console.error(err);
+        renderSyncStatus('บันทึกรับเงินคืนไม่สำเร็จ');
+      }
     }
 
     el.addBtn.addEventListener('click', async () => {
@@ -840,6 +1072,10 @@
         renderSyncStatus('อัปเดตตัวเลือกไม่สำเร็จ');
       }
     });
+
+    el.createClaimBtn.addEventListener('click', createClaimBatch);
+    el.claimStartInput.addEventListener('change', render);
+    el.claimEndInput.addEventListener('change', render);
 
     el.exportBtn.addEventListener('click', () => exportCSV(getFilteredRecords()));
 
@@ -924,6 +1160,17 @@
           renderSyncStatus('อ่านข้อมูลไม่สำเร็จ');
         });
 
+
+        onSnapshot(query(collection(db, 'claimBatches'), orderBy('createdAt', 'desc')), (snapshot) => {
+          state.claimBatches = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+          }));
+          render();
+        }, () => {
+          renderSyncStatus('อ่านรอบเบิกไม่สำเร็จ');
+        });
+
         onSnapshot(doc(db, 'settings', 'payToOptions'), (docSnap) => {
           const data = docSnap.exists() ? docSnap.data() : null;
           const options = Array.isArray(data && data.options) && data.options.length ? data.options : DEFAULT_PAY_TO_OPTIONS;
@@ -940,6 +1187,11 @@
     }
 
        el.dateInput.value = getTodayLocal();
+       el.claimEndInput.value = getTodayLocal();
+       const defaultStart = new Date();
+       defaultStart.setDate(1);
+       const offset = defaultStart.getTimezoneOffset();
+       el.claimStartInput.value = new Date(defaultStart.getTime() - offset * 60 * 1000).toISOString().slice(0, 10);
        render();
        startApp();
   </script>
