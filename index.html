@@ -312,7 +312,10 @@
           <button id="addPayToBtn">เพิ่ม</button>
         </div>
       </div>
-      <div class="hint">วันที่บันทึกอัตโนมัติ: <strong id="todayText"></strong></div>
+      <div class="field">
+        <label class="label">วันที่บันทึก</label>
+        <input id="dateInput" type="date" />
+      </div>
       <div class="hint" id="syncStatusBox">สถานะ: กำลังเชื่อมต่อ Firebase...</div>
       <button class="btn-primary btn-full" id="addBtn">บันทึกรายการ</button>
     </div>
@@ -468,6 +471,7 @@
       editDateText: document.getElementById('editDateText'),
       cancelEditBtn: document.getElementById('cancelEditBtn'),
       saveEditBtn: document.getElementById('saveEditBtn'),
+      dateInput: document.getElementById('dateInput'),
     };
 
     function normalizeDateOnly(value) {
@@ -814,10 +818,11 @@
           item,
           amount,
           payTo,
-          date: getTodayLocal(),
+          date: el.dateInput.value || getTodayLocal(),
         });
         el.itemInput.value = '';
         el.amountInput.value = '';
+        el.dateInput.value = getTodayLocal();
         renderSyncStatus('บันทึกสำเร็จ • ข้อมูล sync อัตโนมัติ');
       } catch (_) {
         renderSyncStatus('บันทึกไม่สำเร็จ');
@@ -936,8 +941,9 @@
       }
     }
 
-    render();
-    startApp();
+       el.dateInput.value = getTodayLocal();
+       render();
+       startApp();
   </script>
 </body>
 </html>
