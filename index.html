@@ -280,18 +280,19 @@
     }
     .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
     .checkbox-big {
-      width: 24px;
-      height: 24px;
-      margin-top: 2px;
+      width: 22px;
+      height: 22px;
+      margin-top: 0;
     }
     .record {
-      padding: 12px 14px;
-      border-radius: 14px;
-      margin-bottom: 7px;
+      padding: 9px 12px;
+      border-radius: 13px;
+      margin-bottom: 6px;
     }
     .record-top {
-      grid-template-columns: 32px 1fr;
+      grid-template-columns: 28px 1fr;
       gap: 8px;
+      align-items:center;
     }
     .record-compact-head {
       display:flex;
@@ -302,8 +303,8 @@
     .record-compact-meta {
       color:var(--muted);
       font-size:12px;
-      margin-top:3px;
-      line-height:1.4;
+      margin-top:2px;
+      line-height:1.25;
     }
     .record-compact-amount {
       font-size:17px;
@@ -315,7 +316,8 @@
       justify-content:space-between;
       align-items:center;
       gap:8px;
-      margin-top:6px;
+      margin-top:2px;
+      min-height:26px;
     }
     .record-compact-round {
       color:var(--muted);
@@ -323,10 +325,10 @@
       min-width:0;
     }
     .record-compact-edit {
-      min-height:30px;
-      height:30px;
+      min-height:26px;
+      height:26px;
       border:0;
-      padding:0 8px;
+      padding:0 4px;
       color:var(--blue);
       background:transparent;
       font-size:13px;
@@ -1004,17 +1006,18 @@
                 <div class="record-compact-head">
                   <div>
                     <div class="record-title">${escapeHtml(record.item)}</div>
-                    <div class="record-compact-meta">${formatDate(record.date)} • ${escapeHtml(record.payTo || '-')} • <span class="badge ${getStatusClass(getStatus(record))}">${getStatusText(getStatus(record))}</span></div>
+                    <div class="record-compact-meta">
+                      ${formatDate(record.date)} • ${escapeHtml(record.payTo || '-')} • <span class="badge ${getStatusClass(getStatus(record))}">${getStatusText(getStatus(record))}</span>
+                      <button class="record-compact-edit edit-btn" data-id="${record.id}">แก้ไข</button>
+                    </div>
                   </div>
                   <div class="record-compact-amount">฿${formatMoney(record.amount)}</div>
                 </div>
-                <div class="record-compact-foot">
-                  <div class="record-compact-round">
-                    ${record.payoutName ? `รอบ ${escapeHtml(String(record.payoutName).replace(/^รอบเบิก\s*/, ''))}` : (record.receiptUrl ? `<a class="link" href="${record.receiptUrl}" target="_blank" rel="noopener">ดูใบเสร็จ</a>` : '')}
-                  </div>
-                  <button class="record-compact-edit edit-btn" data-id="${record.id}">แก้ไข</button>
-                </div>
-                ${record.payoutName && record.receiptUrl ? `<div class="record-compact-meta"><a class="link" href="${record.receiptUrl}" target="_blank" rel="noopener">ดูใบเสร็จ</a></div>` : ''}
+                ${record.payoutName || record.receiptUrl ? `
+                  <div class="record-compact-round" style="margin-top:2px;">
+                    ${record.payoutName ? `รอบ ${escapeHtml(String(record.payoutName).replace(/^รอบเบิก\s*/, ''))}` : ''}
+                    ${record.receiptUrl ? `${record.payoutName ? ' • ' : ''}<a class="link" href="${record.receiptUrl}" target="_blank" rel="noopener">ใบเสร็จ</a>` : ''}
+                  </div>` : ''}
               </div>
             </div>
           </div>
