@@ -280,9 +280,56 @@
     }
     .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 12px; }
     .checkbox-big {
-      width: 28px;
-      height: 28px;
-      margin-top: 4px;
+      width: 24px;
+      height: 24px;
+      margin-top: 2px;
+    }
+    .record {
+      padding: 12px 14px;
+      border-radius: 14px;
+      margin-bottom: 7px;
+    }
+    .record-top {
+      grid-template-columns: 32px 1fr;
+      gap: 8px;
+    }
+    .record-compact-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+    }
+    .record-compact-meta {
+      color:var(--muted);
+      font-size:12px;
+      margin-top:3px;
+      line-height:1.4;
+    }
+    .record-compact-amount {
+      font-size:17px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .record-compact-foot {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      margin-top:6px;
+    }
+    .record-compact-round {
+      color:var(--muted);
+      font-size:11px;
+      min-width:0;
+    }
+    .record-compact-edit {
+      min-height:30px;
+      height:30px;
+      border:0;
+      padding:0 8px;
+      color:var(--blue);
+      background:transparent;
+      font-size:13px;
     }
     @media (min-width: 768px) {
       .wrap { padding: 20px; }
@@ -356,8 +403,9 @@
         <input id="claimEndInput" type="date" />
         <input id="claimStartInput" type="hidden" />
       </div>
-      <div class="hint" id="claimRangeText">รอบเบิก: -</div>
-      <div class="hint" id="claimSummaryText">รายการรอเบิกในช่วงนี้ 0 รายการ • ยอดรวม ฿0.00</div>
+      <div class="hint" id="lastClaimText">รอบล่าสุด: -</div>
+      <div class="hint" id="claimRangeText">รอบใหม่: -</div>
+      <div class="hint" id="claimSummaryText">รายการรอเบิก 0 รายการ • ยอดรวม ฿0.00</div>
       <button class="btn-primary btn-full" id="createClaimBtn">ปิดรอบเบิก</button>
     </div>
 
@@ -557,6 +605,7 @@
       recordsSection: document.getElementById('recordsSection'),
       claimStartInput: document.getElementById('claimStartInput'),
       claimEndInput: document.getElementById('claimEndInput'),
+      lastClaimText: document.getElementById('lastClaimText'),
       claimRangeText: document.getElementById('claimRangeText'),
       claimSummaryText: document.getElementById('claimSummaryText'),
       createClaimBtn: document.getElementById('createClaimBtn'),
@@ -779,9 +828,28 @@
         .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
     }
 
+    function getLatestPayout() {
+      return [...state.payouts]
+        .filter((p) => normalizeDateOnly(p.endDate))
+        .sort((a, b) => normalizeDateOnly(b.endDate).localeCompare(normalizeDateOnly(a.endDate)))[0] || null;
+    }
+
+    function getNextClaimStart() {
+      const latest = getLatestPayout();
+      if (latest && normalizeDateOnly(latest.endDate)) return addDays(normalizeDateOnly(latest.endDate), 1);
+
+      const pendingDates = state.records
+        .filter((r) => getStatus(r) === 'pending')
+        .map((r) => normalizeDateOnly(r.date))
+        .filter(Boolean)
+        .sort();
+      return pendingDates[0] || '';
+    }
+
     function getClaimRecordsInRange() {
-      const start = el.claimStartInput.value;
+      const start = getNextClaimStart();
       const end = el.claimEndInput.value;
+      if (!start || !end || end < start) return [];
       return state.records.filter((r) =>
         getStatus(r) === 'pending' &&
         isDateInRange(r.date, start, end)
@@ -829,19 +897,24 @@
     }
 
     function renderClaimSummary() {
+      const latest = getLatestPayout();
+      const start = getNextClaimStart();
       const end = el.claimEndInput.value;
-      const pendingDates = state.records
-        .filter((r) => getStatus(r) === 'pending')
-        .map((r) => normalizeDateOnly(r.date))
-        .filter(Boolean)
-        .sort();
-
-      const start = pendingDates[0] || '';
       el.claimStartInput.value = start;
 
-      el.claimRangeText.textContent = start && end
-        ? `รอบเบิก: ${formatDateRange(start, end)}`
-        : 'รอบเบิก: ยังไม่มีรายการรอเบิก';
+      if (latest) {
+        el.lastClaimText.textContent = `ตัดรอบล่าสุดถึงวันที่ ${formatDate(latest.endDate)} • ยอดรอบล่าสุด ฿${formatMoney(latest.total || 0)}`;
+      } else {
+        el.lastClaimText.textContent = 'ยังไม่เคยตัดรอบเบิก';
+      }
+
+      if (start && end) {
+        el.claimRangeText.textContent = end >= start
+          ? `รอบใหม่: ${formatDateRange(start, end)}`
+          : `รอบใหม่เริ่ม ${formatDate(start)} • กรุณาเลือกวันสิ้นสุดหลังจากวันเริ่ม`;
+      } else {
+        el.claimRangeText.textContent = 'รอบใหม่: ยังไม่มีรายการรอเบิก';
+      }
 
       const rows = getClaimRecordsInRange();
       const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
@@ -914,26 +987,23 @@
         ${filteredRecords.map((record) => `
           <div class="record">
             <div class="record-top">
-              <div class="record-left">
-                <input type="checkbox" class="select-one checkbox-big" data-id="${record.id}" ${state.selectedIds.includes(record.id) ? 'checked' : ''}>
-                <div class="record-main">
-                  <div class="record-title">${escapeHtml(record.item)}</div>
-                  <div class="record-date">${formatDate(record.date)}</div>
-                  ${record.payoutName ? `<div class="record-date">รอบ: ${escapeHtml(record.payoutName)}</div>` : ''}
-                  <div class="record-right">
-                    <div class="record-amount">฿${formatMoney(record.amount)}</div>
-                    <div>
-                      <div class="badge">${escapeHtml(record.payTo || '-')}</div>
-                      <div class="badge ${getStatusClass(getStatus(record))}" style="margin-left:4px;">${getStatusText(getStatus(record))}</div>
-                    </div>
+              <input type="checkbox" class="select-one checkbox-big" data-id="${record.id}" ${state.selectedIds.includes(record.id) ? 'checked' : ''}>
+              <div class="record-main">
+                <div class="record-compact-head">
+                  <div>
+                    <div class="record-title">${escapeHtml(record.item)}</div>
+                    <div class="record-compact-meta">${formatDate(record.date)} • ${escapeHtml(record.payTo || '-')} • <span class="badge ${getStatusClass(getStatus(record))}">${getStatusText(getStatus(record))}</span></div>
                   </div>
-                  ${record.receiptUrl ? `<div style="margin-top:10px;"><a class="link" href="${record.receiptUrl}" target="_blank" rel="noopener">ดูรูปใบเสร็จ</a></div>` : ''}
+                  <div class="record-compact-amount">฿${formatMoney(record.amount)}</div>
                 </div>
+                <div class="record-compact-foot">
+                  <div class="record-compact-round">
+                    ${record.payoutName ? `รอบ ${escapeHtml(String(record.payoutName).replace(/^รอบเบิก\s*/, ''))}` : (record.receiptUrl ? `<a class="link" href="${record.receiptUrl}" target="_blank" rel="noopener">ดูใบเสร็จ</a>` : '')}
+                  </div>
+                  <button class="record-compact-edit edit-btn" data-id="${record.id}">แก้ไข</button>
+                </div>
+                ${record.payoutName && record.receiptUrl ? `<div class="record-compact-meta"><a class="link" href="${record.receiptUrl}" target="_blank" rel="noopener">ดูใบเสร็จ</a></div>` : ''}
               </div>
-            </div>
-            <div class="record-actions">
-              <button class="edit-btn" data-id="${record.id}">แก้ไข</button>
-              <button class="delete-btn" data-id="${record.id}">ลบ</button>
             </div>
           </div>
         `).join('')}
@@ -950,18 +1020,6 @@
           if (e.target.checked) state.selectedIds = [...new Set([...state.selectedIds, id])];
           else state.selectedIds = state.selectedIds.filter((x) => x !== id);
           render();
-        });
-      });
-
-      document.querySelectorAll('.delete-btn').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.id;
-          state.selectedIds = state.selectedIds.filter((x) => x !== id);
-          try {
-            await deleteDoc(doc(db, 'expenses', id));
-          } catch (_) {
-            renderSyncStatus('ลบไม่สำเร็จ');
-          }
         });
       });
 
@@ -1060,8 +1118,9 @@
       const rows = getClaimRecordsInRange();
       if (!rows.length) return;
 
-      const start = el.claimStartInput.value;
+      const start = getNextClaimStart();
       const end = el.claimEndInput.value;
+      if (!start || !end || end < start) return;
       const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
       const id = `BE-${start}_TO_${end}`;
       const name = `รอบเบิก ${formatDateRange(start, end)}`;
