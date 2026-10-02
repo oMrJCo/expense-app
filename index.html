@@ -308,8 +308,7 @@
           <div class="sub">Firebase sync หลายเครื่อง • รอบเบิก • Dashboard</div>
         </div>
         <div class="top-actions">
-          <button class="btn-danger" id="deleteSelectedBtn">ลบที่เลือก (0)</button>
-          <button class="btn-primary" id="exportBtn">Export CSV</button>
+          <button id="toggleManageBtn">จัดการข้อมูล</button>
         </div>
       </div>
     </div>
@@ -328,8 +327,8 @@
         <label class="label">จ่ายให้ใคร</label>
         <select id="payToInput"></select>
       </div>
-      <div class="mini-box">
-        <div class="mini-title">เพิ่มตัวเลือก “จ่ายให้ใคร”</div>
+      <button class="btn-link" id="togglePayToBtn" style="margin-bottom:12px;">+ เพิ่มตัวเลือก “จ่ายให้ใคร”</button>
+      <div class="mini-box" id="payToManageBox" style="display:none;">
         <div class="inline-row">
           <input id="newPayToInput" placeholder="เช่น บ้าน, ร้าน, คลังสินค้า" />
           <button id="addPayToBtn">เพิ่ม</button>
@@ -352,15 +351,10 @@
 
     <div class="card">
       <div class="card-title" style="margin-bottom:12px;">ตัดรอบเบิก</div>
-      <div class="two-col">
-        <div class="field">
-          <label class="label">วันที่เริ่มรอบ</label>
-          <input id="claimStartInput" type="date" />
-        </div>
-        <div class="field">
-          <label class="label">วันที่สิ้นสุดรอบ</label>
-          <input id="claimEndInput" type="date" />
-        </div>
+      <div class="field">
+        <label class="label">เบิกถึงวันที่</label>
+        <input id="claimEndInput" type="date" />
+        <input id="claimStartInput" type="hidden" />
       </div>
       <div class="hint" id="claimRangeText">รอบเบิก: -</div>
       <div class="hint" id="claimSummaryText">รายการรอเบิกในช่วงนี้ 0 รายการ • ยอดรวม ฿0.00</div>
@@ -396,10 +390,7 @@
           <label class="label">จ่ายให้ใคร</label>
           <select id="payToFilter"></select>
         </div>
-        <div class="field">
-          <label class="label">ค้นหารายการ</label>
-          <input id="keywordInput" placeholder="พิมพ์ชื่อรายการ" />
-        </div>
+        <input id="keywordInput" type="hidden" value="" />
         <div class="two-col" id="customDates" style="display:none;">
           <div class="field">
             <label class="label">วันที่เริ่มต้น</label>
@@ -428,6 +419,14 @@
         <button class="btn-link" id="togglePayoutsBtn">แสดง</button>
       </div>
       <div id="payoutsSection" style="display:none;"></div>
+    </div>
+
+    <div class="card" id="manageSection" style="display:none;">
+      <div class="card-title" style="margin-bottom:12px;">จัดการข้อมูล</div>
+      <div class="record-actions">
+        <button class="btn-danger" id="deleteSelectedBtn">ลบที่เลือก (0)</button>
+        <button class="btn-primary" id="exportBtn">Export CSV</button>
+      </div>
     </div>
 
     <div class="card">
@@ -529,6 +528,10 @@
       payToInput: document.getElementById('payToInput'),
       newPayToInput: document.getElementById('newPayToInput'),
       addPayToBtn: document.getElementById('addPayToBtn'),
+      togglePayToBtn: document.getElementById('togglePayToBtn'),
+      payToManageBox: document.getElementById('payToManageBox'),
+      toggleManageBtn: document.getElementById('toggleManageBtn'),
+      manageSection: document.getElementById('manageSection'),
       addBtn: document.getElementById('addBtn'),
       dateInput: document.getElementById('dateInput'),
       dateDisplayBox: document.getElementById('dateDisplayBox'),
@@ -815,9 +818,6 @@
         { label: 'ยอดรอเบิก', value: `฿${formatMoney(pending)}`, sub: 'ยังไม่ได้ปิดรอบ' },
         { label: 'ยอดรอรับเงิน', value: `฿${formatMoney(waiting)}`, sub: 'ปิดรอบแล้ว รอเงินคืน' },
         { label: 'ยอดเบิกแล้ว', value: `฿${formatMoney(paid)}`, sub: 'รับเงินคืนแล้ว' },
-        { label: 'เดือนนี้', value: `฿${formatMoney(m.thisMonth)}`, sub: 'รวมทุกรายการเดือนนี้' },
-        { label: 'เดือนก่อน', value: `฿${formatMoney(m.lastMonth)}`, sub: 'รวมทุกรายการเดือนก่อน' },
-        { label: 'ต่างจากเดือนก่อน', value: percentText, sub: `ส่วนต่าง ฿${formatMoney(m.diff)}` },
       ];
       el.statsGrid.innerHTML = stats.map((s) => `
         <div class="stat">
@@ -829,13 +829,23 @@
     }
 
     function renderClaimSummary() {
-      const start = el.claimStartInput.value;
       const end = el.claimEndInput.value;
-      el.claimRangeText.textContent = `รอบเบิก: ${formatDateRange(start, end)}`;
+      const pendingDates = state.records
+        .filter((r) => getStatus(r) === 'pending')
+        .map((r) => normalizeDateOnly(r.date))
+        .filter(Boolean)
+        .sort();
+
+      const start = pendingDates[0] || '';
+      el.claimStartInput.value = start;
+
+      el.claimRangeText.textContent = start && end
+        ? `รอบเบิก: ${formatDateRange(start, end)}`
+        : 'รอบเบิก: ยังไม่มีรายการรอเบิก';
 
       const rows = getClaimRecordsInRange();
       const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-      el.claimSummaryText.textContent = `รายการรอเบิกในช่วงนี้ ${rows.length} รายการ • ยอดรวม ฿${formatMoney(total)}`;
+      el.claimSummaryText.textContent = `รายการรอเบิก ${rows.length} รายการ • ยอดรวม ฿${formatMoney(total)}`;
       el.createClaimBtn.disabled = rows.length === 0;
     }
 
@@ -1159,6 +1169,18 @@
       }
     });
 
+    el.togglePayToBtn.addEventListener('click', () => {
+      const open = el.payToManageBox.style.display !== 'none';
+      el.payToManageBox.style.display = open ? 'none' : 'block';
+      el.togglePayToBtn.textContent = open ? '+ เพิ่มตัวเลือก “จ่ายให้ใคร”' : 'ซ่อน';
+    });
+
+    el.toggleManageBtn.addEventListener('click', () => {
+      const open = el.manageSection.style.display !== 'none';
+      el.manageSection.style.display = open ? 'none' : 'block';
+      el.toggleManageBtn.textContent = open ? 'จัดการข้อมูล' : 'ซ่อนการจัดการ';
+    });
+
     el.addPayToBtn.addEventListener('click', async () => {
       const value = el.newPayToInput.value.trim();
       if (!value) return;
@@ -1213,7 +1235,6 @@
     el.customStart.addEventListener('change', render);
     el.customEnd.addEventListener('change', render);
     el.dateInput.addEventListener('change', render);
-    el.claimStartInput.addEventListener('change', render);
     el.claimEndInput.addEventListener('change', render);
 
     el.resetFiltersBtn.addEventListener('click', () => {
@@ -1264,7 +1285,6 @@
 
         const today = getTodayLocal();
         if (!el.claimEndInput.value) el.claimEndInput.value = today;
-        if (!el.claimStartInput.value) el.claimStartInput.value = addDays(today, -30);
 
         await ensureDefaultSettings();
 
