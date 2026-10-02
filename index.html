@@ -399,6 +399,10 @@
     <div class="card">
       <div class="card-title" style="margin-bottom:12px;">ตัดรอบเบิก</div>
       <div class="field">
+        <label class="label">เบิกของ</label>
+        <select id="claimPayToInput"></select>
+      </div>
+      <div class="field">
         <label class="label">เบิกถึงวันที่</label>
         <input id="claimEndInput" type="date" />
         <input id="claimStartInput" type="hidden" />
@@ -603,6 +607,7 @@
       payoutsSection: document.getElementById('payoutsSection'),
       statsGrid: document.getElementById('statsGrid'),
       recordsSection: document.getElementById('recordsSection'),
+      claimPayToInput: document.getElementById('claimPayToInput'),
       claimStartInput: document.getElementById('claimStartInput'),
       claimEndInput: document.getElementById('claimEndInput'),
       lastClaimText: document.getElementById('lastClaimText'),
@@ -812,6 +817,10 @@
       const currentEdit = el.editPayToInput.value || state.payToOptions[0] || '';
       el.editPayToInput.innerHTML = state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
       el.editPayToInput.value = state.payToOptions.includes(currentEdit) ? currentEdit : state.payToOptions[0] || '';
+
+      const currentClaimPayTo = el.claimPayToInput.value || state.payToOptions[0] || '';
+      el.claimPayToInput.innerHTML = state.payToOptions.map((option) => `<option value="${option}">${option}</option>`).join('');
+      el.claimPayToInput.value = state.payToOptions.includes(currentClaimPayTo) ? currentClaimPayTo : state.payToOptions[0] || '';
     }
 
     function getFilteredRecords() {
@@ -828,18 +837,18 @@
         .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
     }
 
-    function getLatestPayout() {
+    function getLatestPayout(payTo = el.claimPayToInput.value) {
       return [...state.payouts]
-        .filter((p) => normalizeDateOnly(p.endDate))
+        .filter((p) => normalizeDateOnly(p.endDate) && (p.payTo || '') === payTo)
         .sort((a, b) => normalizeDateOnly(b.endDate).localeCompare(normalizeDateOnly(a.endDate)))[0] || null;
     }
 
-    function getNextClaimStart() {
-      const latest = getLatestPayout();
+    function getNextClaimStart(payTo = el.claimPayToInput.value) {
+      const latest = getLatestPayout(payTo);
       if (latest && normalizeDateOnly(latest.endDate)) return addDays(normalizeDateOnly(latest.endDate), 1);
 
       const pendingDates = state.records
-        .filter((r) => getStatus(r) === 'pending')
+        .filter((r) => getStatus(r) === 'pending' && r.payTo === payTo)
         .map((r) => normalizeDateOnly(r.date))
         .filter(Boolean)
         .sort();
@@ -847,11 +856,13 @@
     }
 
     function getClaimRecordsInRange() {
-      const start = getNextClaimStart();
+      const payTo = el.claimPayToInput.value;
+      const start = getNextClaimStart(payTo);
       const end = el.claimEndInput.value;
-      if (!start || !end || end < start) return [];
+      if (!payTo || !start || !end || end < start) return [];
       return state.records.filter((r) =>
         getStatus(r) === 'pending' &&
+        r.payTo === payTo &&
         isDateInRange(r.date, start, end)
       );
     }
@@ -897,15 +908,16 @@
     }
 
     function renderClaimSummary() {
-      const latest = getLatestPayout();
-      const start = getNextClaimStart();
+      const payTo = el.claimPayToInput.value;
+      const latest = getLatestPayout(payTo);
+      const start = getNextClaimStart(payTo);
       const end = el.claimEndInput.value;
       el.claimStartInput.value = start;
 
       if (latest) {
-        el.lastClaimText.textContent = `ตัดรอบล่าสุดถึงวันที่ ${formatDate(latest.endDate)} • ยอดรอบล่าสุด ฿${formatMoney(latest.total || 0)}`;
+        el.lastClaimText.textContent = `รอบล่าสุดของ ${payTo}: ถึง ${formatDate(latest.endDate)} • ฿${formatMoney(latest.total || 0)}`;
       } else {
-        el.lastClaimText.textContent = 'ยังไม่เคยตัดรอบเบิก';
+        el.lastClaimText.textContent = payTo ? `ยังไม่เคยตัดรอบเบิกของ ${payTo}` : 'ยังไม่เคยตัดรอบเบิก';
       }
 
       if (start && end) {
@@ -953,7 +965,7 @@
       el.payoutsSection.innerHTML = state.payouts.map((payout) => `
         <div class="payout-card">
           <div class="record-title">${escapeHtml(payout.name || payout.id)}</div>
-          <div class="record-date">${formatDateRange(payout.startDate, payout.endDate)}</div>
+          <div class="record-date">${payout.payTo ? `เบิกของ ${escapeHtml(payout.payTo)} • ` : ''}${formatDateRange(payout.startDate, payout.endDate)}</div>
           <div class="record-right">
             <div>
               <div class="record-amount">฿${formatMoney(payout.total || 0)}</div>
@@ -1118,12 +1130,14 @@
       const rows = getClaimRecordsInRange();
       if (!rows.length) return;
 
-      const start = getNextClaimStart();
+      const payTo = el.claimPayToInput.value;
+      const start = getNextClaimStart(payTo);
       const end = el.claimEndInput.value;
-      if (!start || !end || end < start) return;
+      if (!payTo || !start || !end || end < start) return;
       const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-      const id = `BE-${start}_TO_${end}`;
-      const name = `รอบเบิก ${formatDateRange(start, end)}`;
+      const safePayTo = payTo.replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
+      const id = `BE-${safePayTo}-${start}_TO_${end}`;
+      const name = `รอบเบิก ${payTo} ${formatDateRange(start, end)}`;
 
       try {
         renderSyncStatus('กำลังปิดรอบเบิก...');
@@ -1134,6 +1148,7 @@
           name,
           startDate: start,
           endDate: end,
+          payTo,
           itemIds: rows.map(r => r.id),
           count: rows.length,
           total,
@@ -1149,6 +1164,7 @@
             payoutName: name,
             payoutStartDate: start,
             payoutEndDate: end,
+            payoutPayTo: payTo,
             updatedAt: new Date().toISOString(),
           }, { merge: true });
         });
@@ -1294,6 +1310,7 @@
     el.customStart.addEventListener('change', render);
     el.customEnd.addEventListener('change', render);
     el.dateInput.addEventListener('change', render);
+    el.claimPayToInput.addEventListener('change', render);
     el.claimEndInput.addEventListener('change', render);
 
     el.resetFiltersBtn.addEventListener('click', () => {
